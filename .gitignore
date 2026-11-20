@@ -41,5 +41,22 @@ yarn-error.*
 example
 
 # generated native folders
-/ios
-/android
+/mobile_app/ios
+/mobile_app/android
+
+
+
+
+
+
+
+#BACKEND
+
+api/node_modules/
+api/dist/
+api/coverage/
+api/.env
+api/.env.*
+!.env.example
+api/*.log
+api/.DS_Store

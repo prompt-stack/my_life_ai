@@ -10,8 +10,19 @@ Built incrementally, phase by phase. Treat it as both a real product and a learn
 
 ## Current status
 
-- **Phase:** 0 – Foundations (update this line as phases complete)
-- **Next milestone:** Expo app running on the iOS Simulator, calling a deployed `/health` endpoint
+- **Phase:** 0 – Foundations, with the mobile UI shell ahead of schedule (update this line as phases complete)
+- **Done (mobile only, no backend yet), as of 2026-11-20:**
+  - Expo app in `mobile_app/` (SDK 58, Expo Router, pnpm). It runs on the iOS Simulator (iPhone 18 Pro Max) and in Expo Go on Android.
+  - Guest-first: the app opens straight into tabs (Chat · Controls · Tasks · Inbox · Settings). Sign-in is a modal opened from Settings ("Sign in for Pro"). The session is a placeholder (`src/lib/session.tsx`, `guest | signedIn`).
+  - Controls tab: 7 Free tiles (Alarms, Calendar, Messages, Calls, Contacts, Brightness, Apps) with "Free" badges. Each opens a placeholder screen ("Coming in Phase 3"); no device APIs are wired yet.
+  - Chat composer UI only (it sends nothing yet). Tasks, Inbox and Settings are placeholders.
+  - Theme tokens with light/dark mode and borders on surfaces. Android: Material (`md`) icons, always-visible tab labels, and a force-dark opt-out plugin (applies in dev/prod builds only, not Expo Go).
+  - Maestro journey `.maestro/skeleton.yaml` passes on iOS. Typecheck and lint pass. There's no unit test runner yet.
+  - Claude agents in `.claude/agents/`: researcher, backend-engineer, database-engineer, frontend-engineer, mobile-tester.
+- **API skeleton** in `api/` (Express 5 + TypeScript): `GET /health`, 501 placeholders for chat/voice/tasks/approvals/integrations, Zod env, error handling, request IDs, security middleware, tool registry with one example tool, Vitest tests. No external connections yet.
+- **Not started:** `packages/shared`, Supabase, OpenAI, Redis/BullMQ, deployment.
+- **Open issues:** Android tab icons not yet confirmed in Expo Go; an intermittent iOS cold launch landed on the wrong tab once; light-mode primary button contrast is 3.5:1; badge testIDs always end in `-free-badge`.
+- **Next milestone:** have the mobile app call `GET /health` on the API (shared types via `packages/shared`), then Phase 1: backend chat + tasks.
 - Build order: Step 0 skeleton → Phase 1 backend chat + tasks → Phase 2 mobile shell + guest mode → Phase 3 device control (Free) → Phase 4 orchestrator/memory/RAG → Phase 5 integrations (Pro) → Phase 6 voice/push → Phase 7 approvals/scheduling/evals/Pro billing → Phase 8 release
 - Build in **thin vertical slices**: one feature end to end (DB → tool → agent → API → screen) before starting the next.
 
@@ -21,7 +32,7 @@ Built incrementally, phase by phase. Treat it as both a real product and a learn
 | --- | --- |
 | Mobile | Expo + React Native + TypeScript, Expo Router |
 | Mobile state/data | TanStack Query (server data), Zustand (small UI state) |
-| Backend | Node.js + TypeScript (Fastify) |
+| Backend | Node.js + TypeScript (Express 5) |
 | AI orchestration | OpenAI Agents SDK (LangGraph only later, if needed) |
 | Tool integration | Native function tools + MCP |
 | Database | Supabase Postgres + pgvector |
@@ -34,15 +45,16 @@ Built incrementally, phase by phase. Treat it as both a real product and a learn
 | Web (later) | Next.js admin / activity dashboard |
 | Deploy | Docker, AWS EC2; mobile via EAS Build/Submit |
 
-## Repo layout (target monorepo, pnpm workspaces + Turborepo)
+## Repo layout
+
+Current layout: two standalone pnpm projects at the repo root. A pnpm workspace + Turborepo comes later, when `packages/shared` is added.
 
 ```
-apps/
-  mobile/        Expo app (Expo Router: app/(auth), app/(tabs))
-  api/           Node.js API + agents + BullMQ workers
-  web/           Next.js dashboard (later)
+mobile_app/      Expo app (Expo Router: src/app/(tabs), src/app/sign-in modal)
+api/             Node.js + TypeScript + Express API, agents, tools (BullMQ workers later)
+web/             Next.js dashboard (later)
 packages/
-  shared/        Zod schemas + TypeScript types used by mobile and api
+  shared/        Zod schemas + TypeScript types used by mobile_app and api (later; until then, don't duplicate types: keep API types in api/ and add packages/shared before the app consumes them)
 .maestro/        Maestro E2E flows (YAML)
 .claude/         Claude Code settings, agents, commands
 ```
@@ -50,30 +62,31 @@ packages/
 API internals:
 
 ```
-apps/api/src/
-  routes/        chat, voice, tasks, approvals, integrations
+api/src/
+  server.ts      entry: config, listen, graceful shutdown
+  app.ts         createApp(deps) factory (used by tests via supertest)
+  config/        Zod-validated environment
+  routes/        health, chat, voice, tasks, approvals, integrations
   agents/        orchestrator.ts + one file per specialist agent
-  tools/         one file per tool: Zod schema + implementation + risk level
+  tools/         one file per tool: Zod schema + implementation + risk level + target (server/device)
   integrations/  google/, mcp/, search/
   memory/        remember, recall, embeddings
   jobs/          BullMQ queues and workers (reminders, workflows)
-  lib/           supabase, auth, logging, tracing
+  lib/           logger, errors, http middleware, auth, supabase, tracing
   evals/         test prompts + expected tool calls
 ```
 
-If the monorepo is not set up yet, the Expo app lives at the repo root; move it to `apps/mobile` when `apps/api` is added.
-
 ## Commands
 
-<!-- Update these as scripts are added -->
-- Install: `pnpm install`
+<!-- Update these as scripts are added. Until the workspace exists, run commands inside mobile_app/ or api/ -->
+- Install: `pnpm install` (in `mobile_app/` for now)
 - Type check: `pnpm typecheck`
 - Lint: `pnpm lint`
-- Test: `pnpm test`
-- API dev server: `pnpm --filter api dev`
-- Mobile (iOS Simulator): `open /Applications/Xcode.app/Contents/Applications/DeviceHub.app && npx expo run:ios` (from the mobile app folder; in this Xcode the Simulator UI app is named DeviceHub, so `open -a Simulator` fails)
-- Mobile dev server only: `npx expo start` (press `i` for iOS)
-- E2E flows: `~/.maestro/bin/maestro test .maestro/` (Metro must be running; Maestro is not on PATH by default)
+- Test: `pnpm test` (not set up yet: no unit test runner; ask before adding one)
+- API dev server: `pnpm dev` (in `api/`); API checks: `pnpm typecheck && pnpm lint && pnpm test` (in `api/`)
+- Mobile (iOS Simulator): `open /Applications/Xcode.app/Contents/Applications/DeviceHub.app && npx expo run:ios --device "iPhone 18 Pro Max"` (from `mobile_app/`; in this Xcode the Simulator UI app is named DeviceHub, so `open -a Simulator` fails)
+- Mobile dev server only: `npx expo start` (press `i` for iOS; scan the QR with Expo Go on Android)
+- E2E flows: `~/.maestro/bin/maestro test .maestro/` (Metro must be running; Maestro is not on PATH by default). On iOS, use `waitForAnimationToEnd` after navigation and tap the header back button (Maestro `back` doesn't work on iOS)
 
 **A task is done only when typecheck, lint and tests pass.**
 
@@ -194,7 +207,7 @@ Schema changes go through Supabase migrations, never manual edits in the dashboa
 ## Testing
 
 - **Unit/integration:** Vitest for tools, routes and agents (mock the model where possible).
-- **Agent evals:** prompts in `apps/api/src/evals/` with expected tool calls (e.g. "remind me at 9" → `createReminder` at 09:00 Asia/Manila). Run after changing prompts or models.
+- **Agent evals:** prompts in `api/src/evals/` with expected tool calls (e.g. "remind me at 9" → `createReminder` at 09:00 Asia/Manila). Run after changing prompts or models.
 - **Mobile E2E:** Maestro via the Maestro MCP server on the booted **iOS Simulator** (Android emulator later). Use the `mobile-tester` agent. Save passing journeys to `.maestro/<feature>.yaml`.
 - Agent replies vary between runs: assert on outcomes (task created, approval card shown, tool card text), not exact wording.
 - Use a dedicated test account and dev backend. Never test against real email, calendars or production data.
@@ -220,7 +233,7 @@ For every user prompt, first classify the task, then delegate to the matching ag
 | --- | --- | --- |
 | Research, comparisons, feasibility, "best way/library/model", versions, pricing, platform/store rules, AI-integration approaches | `researcher` | "research speech-to-text options", "can iOS set alarms?", "which embedding model?" |
 | Database: tables, migrations, RLS, indexes, constraints, RPC functions, pgvector, slow queries | `database-engineer` | "add an expenses table", "why is the tasks query slow?" |
-| API / server: Fastify routes, services, agent orchestration, agent and device tool definitions, BullMQ jobs, caching, integrations, auth, plan enforcement | `backend-engineer` | "add POST /chat", "create the setAlarm device tool", "add rate limiting" |
+| API / server: Express routes, services, agent orchestration, agent and device tool definitions, BullMQ jobs, caching, integrations, auth, plan enforcement | `backend-engineer` | "add POST /chat", "create the setAlarm device tool", "add rate limiting" |
 | Mobile app: screens, components, navigation, themes, data fetching, realtime, device action handlers in `src/device/`, guest/Pro gating UI | `frontend-engineer` | "build the Tasks screen", "add dark mode toggle", "show sign-in sheet for Pro" |
 | Testing the app: run or extend Maestro flows, explore features, find bugs and UX issues | `mobile-tester` | "test the app", "check the chat flow for bugs" |
 
