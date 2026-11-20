@@ -1,0 +1,16 @@
+[
+  {
+    "id": "time-now-default-timezone",
+    "prompt": "What time is it?",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T01:30:00.000Z",
+    "expectedToolCalls": [{ "tool": "get_current_time" }]
+  },
+  {
+    "id": "time-now-explicit-timezone",
+    "prompt": "What time is it in Tokyo right now?",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T01:30:00.000Z",
+    "expectedToolCalls": [{ "tool": "get_current_time", "args": { "timezone": "Asia/Tokyo" } }]
+  }
+]
