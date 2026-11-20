@@ -1,0 +1,154 @@
+# Guest-first skeleton journey: opens as guest on Chat, uses the composer, visits every
+# Controls screen, opens the sign-in sheet from Settings, signs in and back out to guest.
+# Requires Metro running (`pnpm start` in mobile_app/) and the dev build installed.
+appId: com.mylifeai.app
+---
+- launchApp:
+    stopApp: true
+
+# Guest: app opens straight on Chat, no login.
+# Known issue: ~1 in 6 dev cold launches briefly lands on another tab; select Chat explicitly.
+- waitForAnimationToEnd
+- tapOn: Chat
+- assertVisible:
+    id: chat-screen
+- takeScreenshot: 01-chat-guest
+
+# Chat composer: Send disabled until there is text, clears after sending
+- tapOn:
+    id: chat-input
+- inputText: Set an alarm for 6 AM
+- tapOn:
+    id: send-button
+- assertVisible: Remind me to check my emails at 9 AM
+# Tapping outside the input dismisses the keyboard so the tab bar is reachable
+- tapOn:
+    id: chat-messages-area
+- takeScreenshot: 01b-chat-keyboard-dismissed
+
+# Controls menu
+- tapOn: Controls
+- waitForAnimationToEnd
+- assertVisible:
+    id: controls-screen
+- assertVisible:
+    id: controls-free-note
+- assertVisible: Free, no account needed
+- assertVisible:
+    id: control-tile-alarms-free-badge
+- takeScreenshot: 02-controls
+
+# Each control screen opens and goes back
+- tapOn:
+    id: control-tile-alarms
+- waitForAnimationToEnd
+- assertVisible:
+    id: alarms-screen
+- assertVisible:
+    id: alarms-screen-free-badge
+- takeScreenshot: 03-alarms
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+
+- tapOn:
+    id: control-tile-calendar
+- waitForAnimationToEnd
+- assertVisible:
+    id: calendar-screen
+- takeScreenshot: 04-calendar
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+
+- tapOn:
+    id: control-tile-messages
+- waitForAnimationToEnd
+- assertVisible:
+    id: messages-screen
+- takeScreenshot: 05-messages
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+
+- tapOn:
+    id: control-tile-calls
+- waitForAnimationToEnd
+- assertVisible:
+    id: calls-screen
+- takeScreenshot: 06-calls
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+
+- scrollUntilVisible:
+    element:
+      id: control-tile-contacts
+- tapOn:
+    id: control-tile-contacts
+- waitForAnimationToEnd
+- assertVisible:
+    id: contacts-screen
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+
+- scrollUntilVisible:
+    element:
+      id: control-tile-brightness
+- tapOn:
+    id: control-tile-brightness
+- waitForAnimationToEnd
+- assertVisible:
+    id: brightness-screen
+- takeScreenshot: 07-brightness
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+
+- scrollUntilVisible:
+    element:
+      id: control-tile-apps
+- tapOn:
+    id: control-tile-apps
+- waitForAnimationToEnd
+- assertVisible:
+    id: apps-screen
+- takeScreenshot: 08-apps
+- tapOn: Controls  # header back button (iOS has no hardware back)
+- waitForAnimationToEnd
+- assertVisible:
+    id: controls-screen
+
+# Other tabs
+- tapOn: Tasks
+- waitForAnimationToEnd
+- assertVisible:
+    id: tasks-screen
+- tapOn: Inbox
+- waitForAnimationToEnd
+- assertVisible:
+    id: inbox-screen
+
+# Settings as guest -> sign-in sheet
+- tapOn: Settings
+- waitForAnimationToEnd
+- assertVisible: Guest
+- takeScreenshot: 09-settings-guest
+- tapOn:
+    id: open-sign-in-button
+- assertVisible:
+    id: sign-in-screen
+- takeScreenshot: 10-sign-in-sheet
+
+# "Not now" dismisses, still a guest
+- tapOn:
+    id: sign-in-dismiss
+- assertVisible: Guest
+
+# Sign in, then sign out back to guest (stays in the app)
+- tapOn:
+    id: open-sign-in-button
+- tapOn:
+    id: sign-in-button
+- assertVisible: Signed in (Pro)
+- takeScreenshot: 11-settings-pro
+- tapOn:
+    id: sign-out-button
+- assertVisible: Guest
+- assertVisible:
+    id: settings-screen
