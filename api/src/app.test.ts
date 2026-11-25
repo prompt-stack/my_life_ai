@@ -60,7 +60,6 @@ describe('unknown routes', () => {
 describe('placeholder routes', () => {
   it.each([
     ['post', '/chat'],
-    ['post', '/voice'],
     ['get', '/tasks'],
     ['get', '/approvals'],
     ['get', '/integrations/google'],

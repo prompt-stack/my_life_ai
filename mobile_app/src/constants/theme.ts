@@ -19,6 +19,8 @@ export const Colors = {
     border: '#D9DBE0',
     freeBadge: '#DCF5E4',
     onFreeBadge: '#0B5D28',
+    speaking: '#0B7A3B',
+    onSpeaking: '#ffffff',
   },
   dark: {
     text: '#ffffff',
@@ -33,6 +35,8 @@ export const Colors = {
     border: '#3F434A',
     freeBadge: '#12361F',
     onFreeBadge: '#8EE0A8',
+    speaking: '#4CD27A',
+    onSpeaking: '#000000',
   },
 } as const;
 

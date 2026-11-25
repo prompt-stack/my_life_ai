@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import type { Server } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { createApp } from './app.js';
-import { EnvValidationError, parseEnv } from './config/env.js';
+import { EnvValidationError, parseEnv, type AppConfig } from './config/env.js';
+import { createGroqClient } from './lib/groq.js';
 import { createLogger, type Logger } from './lib/logger.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -47,6 +49,22 @@ function registerShutdown(server: Server, logger: Logger): void {
   process.on('SIGINT', shutdown);
 }
 
+/** LAN URLs a phone on the same Wi-Fi can use (development hint only). */
+function lanUrls(port: number): string[] {
+  return Object.values(networkInterfaces())
+    .flatMap((addresses) => addresses ?? [])
+    .filter((address) => address.family === 'IPv4' && !address.internal)
+    .map((address) => `http://${address.address}:${port}`);
+}
+
+function logListening(logger: Logger, config: AppConfig, version: string): void {
+  logger.info({ host: config.host, port: config.port, env: config.nodeEnv, version }, 'api listening');
+  const exposedToLan = config.host === '0.0.0.0' || config.host === '::';
+  if (!config.isProduction && exposedToLan) {
+    logger.info({ urls: lanUrls(config.port) }, 'reachable from devices on this network');
+  }
+}
+
 async function main(): Promise<void> {
   let config;
   try {
@@ -62,14 +80,25 @@ async function main(): Promise<void> {
 
   const logger = createLogger({ level: config.logLevel });
   const version = await readVersion();
-  const app = createApp({ config, logger, version });
 
-  const server = app.listen(config.port, (err?: Error) => {
+  const { apiKey } = config.groq;
+  if (!apiKey) {
+    logger.warn('GROQ_API_KEY is not set; POST /voice will answer 503 ai_not_configured');
+  }
+  const modelClient = apiKey ? createGroqClient(apiKey) : undefined;
+  logger.info(
+    { model: config.groq.model, reasoningEffort: config.groq.reasoningEffort, configured: Boolean(modelClient) },
+    'ai provider: groq',
+  );
+
+  const app = createApp({ config, logger, version, ...(modelClient ? { modelClient } : {}) });
+
+  const server = app.listen(config.port, config.host, (err?: Error) => {
     if (err) {
       logger.fatal({ err }, 'failed to start server');
       process.exit(1);
     }
-    logger.info({ port: config.port, env: config.nodeEnv, version }, 'api listening');
+    logListening(logger, config, version);
   });
 
   registerShutdown(server, logger);

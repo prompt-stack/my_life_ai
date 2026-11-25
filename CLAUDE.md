@@ -1,9 +1,9 @@
 # MyLife AI
 
-Personal AI agent app for everyday life and productivity. The user types or speaks a request ("set an alarm for 6 AM", "text Mom I'm on my way", "add lunch with Ana tomorrow at noon", "dim the screen", "summarize my unread emails") and the agent **performs the action with real tools**, not just a text reply.
+Personal AI agent app for everyday life and productivity. The user speaks a request (the app is **voice-only**: no text chat) ("set an alarm for 6 AM", "text Mom I'm on my way", "add lunch with Ana tomorrow at noon", "dim the screen", "summarize my unread emails") and the agent **performs the action with real tools**, not just a text reply.
 
 Two plans:
-- **Free (guest, no account needed):** controlling the phone by chat or voice: calendar, alarms, texts, calls, contacts, brightness and opening the phone's basic apps, plus tasks and reminders. See "Device control".
+- **Free (guest, no account needed):** controlling the phone by voice: calendar, alarms, texts, calls, contacts, brightness and opening the phone's basic apps, plus tasks and reminders. See "Device control".
 - **Pro (account required):** cloud features that need a persistent identity, such as email and calendar integrations, memory and documents, cross-device sync, and higher limits. See "Plans".
 
 Built incrementally, phase by phase. Treat it as both a real product and a learning project: prefer clear, well-structured code over clever shortcuts.
@@ -11,18 +11,21 @@ Built incrementally, phase by phase. Treat it as both a real product and a learn
 ## Current status
 
 - **Phase:** 0 – Foundations, with the mobile UI shell ahead of schedule (update this line as phases complete)
-- **Done (mobile only, no backend yet), as of 2026-11-20:**
-  - Expo app in `mobile_app/` (SDK 58, Expo Router, pnpm). It runs on the iOS Simulator (iPhone 18 Pro Max) and in Expo Go on Android.
-  - Guest-first: the app opens straight into tabs (Chat · Controls · Tasks · Inbox · Settings). Sign-in is a modal opened from Settings ("Sign in for Pro"). The session is a placeholder (`src/lib/session.tsx`, `guest | signedIn`).
+- **Done, as of 2026-11-25:**
+  - Expo app in `mobile_app/` (SDK 58, Expo Router, pnpm). It runs on the iOS Simulator (iPhone 18 Pro Max) and on Android via an **EAS development build** (`mobile_app/eas.json`, `development` profile, APK). **Expo Go no longer works**: `expo-speech-recognition` is a native module.
+  - Guest-first: the app opens straight into tabs (Assistant · Controls · Tasks · Inbox · Settings). Sign-in is a modal opened from Settings ("Sign in for Pro"). The session is a placeholder (`src/lib/session.tsx`, `guest | signedIn`).
   - Controls tab: 7 Free tiles (Alarms, Calendar, Messages, Calls, Contacts, Brightness, Apps) with "Free" badges. Each opens a placeholder screen ("Coming in Phase 3"); no device APIs are wired yet.
-  - Chat composer UI only (it sends nothing yet). Tasks, Inbox and Settings are placeholders.
+  - **Voice Assistant tab** (replaced the text Chat tab): tap the animated orb (`src/components/voice-orb.tsx`; states idle/listening/thinking/speaking/error) → on-device speech-to-text (`expo-speech-recognition`) → `POST /voice` → reply spoken with on-device TTS (`expo-speech`). No transcript or reply text is shown. Logic in `src/hooks/use-voice-conversation.ts` + `src/lib/voice-api.ts`; history is kept in memory only (max 20 turns).
+  - **First device tool: `setAlarm` (Android only)**, voice → alarm end to end. The app sends `device` (platform, OS version, capabilities) with every `/voice` request; the server offers `setAlarm` only to Android clients that report it. The agent asks back when the time is missing or AM/PM is ambiguous ("6 AM or 6 PM?"), otherwise calls `setAlarm({ hour, minute, label? })`; `/voice` returns it as `deviceAction`, the app re-validates with `SetAlarmArgsSchema` and sets the alarm **silently** in the Clock app (`expo-intent-launcher`, `AlarmClock.ACTION_SET_ALARM` + `SKIP_UI`, permission `com.android.alarm.permission.SET_ALARM`), then sends a second `/voice` request with `toolResult` (same text/history) and speaks the confirmation. Stateless two-step protocol, one action per turn, continuation sends no tools. iOS: tool not offered, the agent says "I can't set alarms on iPhone yet." Code: `packages/shared/src/device.ts`, `api/src/tools/set-alarm.ts` + `device-catalog.ts`, `api/src/agents/voice-device-tools.ts`, `mobile_app/src/device/` (registry + `set-alarm.ts`), `mobile_app/src/lib/voice-turn.ts`. Verified live against Groq `gpt-oss-20b` (7 AM, 7 p.m., 6:30am, in 20 minutes, 18:00, "at 6" → asks, iPhone → declines); evals in `api/src/evals/cases/set-alarm.json` (no runner yet). **Not yet verified on the Poco** (needs a new EAS dev build).
+  - Tasks, Inbox and Settings are placeholders. Controls screens still say "just ask in Chat" (copy not yet updated).
   - Theme tokens with light/dark mode and borders on surfaces. Android: Material (`md`) icons, always-visible tab labels, and a force-dark opt-out plugin (applies in dev/prod builds only, not Expo Go).
-  - Maestro journey `.maestro/skeleton.yaml` passes on iOS. Typecheck and lint pass. There's no unit test runner yet.
+  - Maestro journey `.maestro/skeleton.yaml` passed on iOS before the voice changes; its Assistant section was updated but not re-run. Typecheck and lint pass. There's no mobile unit test runner yet.
   - Claude agents in `.claude/agents/`: researcher, backend-engineer, database-engineer, frontend-engineer, mobile-tester.
-- **API skeleton** in `api/` (Express 5 + TypeScript): `GET /health`, 501 placeholders for chat/voice/tasks/approvals/integrations, Zod env, error handling, request IDs, security middleware, tool registry with one example tool, Vitest tests. No external connections yet.
-- **Not started:** `packages/shared`, Supabase, OpenAI, Redis/BullMQ, deployment.
-- **Open issues:** Android tab icons not yet confirmed in Expo Go; an intermittent iOS cold launch landed on the wrong tab once; light-mode primary button contrast is 3.5:1; badge testIDs always end in `-free-badge`.
-- **Next milestone:** have the mobile app call `GET /health` on the API (shared types via `packages/shared`), then Phase 1: backend chat + tasks.
+- **API** in `api/` (Express 5 + TypeScript): `GET /health`; **`POST /voice`** (text + history → Groq LLM → `{ reply }`, 20 req/min per IP, structured errors `ai_not_configured` 503 / `ai_rate_limited` 429 / `ai_timeout` 504 / `ai_upstream_error` 502, **no auth yet**); 501 placeholders for chat/tasks/approvals/integrations; Zod env, error handling, request IDs, security middleware, tool registry with one example tool, Vitest tests (235 passing). Listens on `HOST=0.0.0.0` so a phone on the same Wi-Fi can reach it.
+- **`packages/shared`** (`@mylife/shared`): Zod schemas for the voice contract (`VoiceRequestSchema`, `VoiceResponseSchema`), built with `tsc` to `dist/` and linked into `api/` and `mobile_app/` via `link:` (Metro `watchFolders` in `mobile_app/metro.config.js`).
+- **Not started:** Supabase (auth, DB, `agent_runs` logging), Redis/BullMQ, deployment, pnpm workspace.
+- **Open issues:** HyperOS Clock may ignore `SKIP_UI` or the label (untested); `SKIP_UI` one-off alarms may be auto-deleted after dismissal; "dispatched" can't be confirmed (no API to read Clock alarms); repeating alarms, specific dates and the Controls → Alarms screen aren't done; `/voice` has no auth (anyone on the LAN can spend Groq quota, within the per-IP limit) until Phase 1; the API Dockerfile no longer builds because `@mylife/shared` is outside its build context; a `preview` (release) APK blocks cleartext `http://` to the LAN API; the voice flow hasn't been verified on a real device yet; Android tab icons not yet confirmed; an intermittent iOS cold launch landed on the wrong tab once; light-mode primary button contrast is 3.5:1; badge testIDs always end in `-free-badge`.
+- **Next milestone:** rebuild the EAS dev build and verify the voice loop + `setAlarm` on the Poco F9 Pro, then Phase 1: Supabase auth + tasks, with `/voice` protected by `requireAuth`.
 - Build order: Step 0 skeleton → Phase 1 backend chat + tasks → Phase 2 mobile shell + guest mode → Phase 3 device control (Free) → Phase 4 orchestrator/memory/RAG → Phase 5 integrations (Pro) → Phase 6 voice/push → Phase 7 approvals/scheduling/evals/Pro billing → Phase 8 release
 - Build in **thin vertical slices**: one feature end to end (DB → tool → agent → API → screen) before starting the next.
 
@@ -33,7 +36,9 @@ Built incrementally, phase by phase. Treat it as both a real product and a learn
 | Mobile | Expo + React Native + TypeScript, Expo Router |
 | Mobile state/data | TanStack Query (server data), Zustand (small UI state) |
 | Backend | Node.js + TypeScript (Express 5) |
-| AI orchestration | OpenAI Agents SDK (LangGraph only later, if needed) |
+| AI provider | **Groq** via `groq-sdk` (free tier), server-side only. Model is set in `api/.env` (`GROQ_MODEL`, default `openai/gpt-oss-20b`; `openai/gpt-oss-120b` for smarter replies). Groq retires models often: check its deprecations page |
+| AI orchestration | To be decided in Phase 4 (originally OpenAI Agents SDK; it would need to work with Groq's OpenAI-compatible API). LangGraph only later, if needed |
+| Speech | On-device: `expo-speech-recognition` (speech-to-text, needs Google speech services on Android) and `expo-speech` (text-to-speech) |
 | Tool integration | Native function tools + MCP |
 | Database | Supabase Postgres + pgvector |
 | Auth | Supabase Auth (session stored with `expo-secure-store`) |
@@ -47,14 +52,14 @@ Built incrementally, phase by phase. Treat it as both a real product and a learn
 
 ## Repo layout
 
-Current layout: two standalone pnpm projects at the repo root. A pnpm workspace + Turborepo comes later, when `packages/shared` is added.
+Current layout: standalone pnpm projects at the repo root (`mobile_app/`, `api/`, `packages/shared/`), with `packages/shared` linked into the other two via `link:`. A pnpm workspace + Turborepo comes later.
 
 ```
 mobile_app/      Expo app (Expo Router: src/app/(tabs), src/app/sign-in modal)
 api/             Node.js + TypeScript + Express API, agents, tools (BullMQ workers later)
 web/             Next.js dashboard (later)
 packages/
-  shared/        Zod schemas + TypeScript types used by mobile_app and api (later; until then, don't duplicate types: keep API types in api/ and add packages/shared before the app consumes them)
+  shared/        @mylife/shared: Zod schemas + TypeScript types used by mobile_app and api (build to dist/ with `pnpm build` after editing src/)
 .maestro/        Maestro E2E flows (YAML)
 .claude/         Claude Code settings, agents, commands
 ```
@@ -79,21 +84,24 @@ api/src/
 ## Commands
 
 <!-- Update these as scripts are added. Until the workspace exists, run commands inside mobile_app/ or api/ -->
-- Install: `pnpm install` (in `mobile_app/` for now)
+- Install: `pnpm install` in `packages/shared/` first (its `prepare` script builds `dist/`), then in `api/` and `mobile_app/`. Re-run `pnpm build` in `packages/shared/` after changing its `src/`
 - Type check: `pnpm typecheck`
 - Lint: `pnpm lint`
 - Test: `pnpm test` (not set up yet: no unit test runner; ask before adding one)
 - API dev server: `pnpm dev` (in `api/`); API checks: `pnpm typecheck && pnpm lint && pnpm test` (in `api/`)
 - Mobile (iOS Simulator): `open /Applications/Xcode.app/Contents/Applications/DeviceHub.app && npx expo run:ios --device "iPhone 18 Pro Max"` (from `mobile_app/`; in this Xcode the Simulator UI app is named DeviceHub, so `open -a Simulator` fails)
-- Mobile dev server only: `npx expo start` (press `i` for iOS; scan the QR with Expo Go on Android)
+- Mobile dev server only: `npx expo start --dev-client` (press `i` for iOS; on Android open the installed dev build and connect)
+- Android dev build (Poco F9 Pro; no Android SDK on this Mac): `npx eas-cli build --profile development --platform android` from `mobile_app/` (the user runs it: needs their Expo login), then install the APK on the phone
+- Phone → API: set `EXPO_PUBLIC_API_URL=http://<Mac LAN IP>:3000` in `mobile_app/.env` (get the IP with `ipconfig getifaddr en0`; `localhost` only works on the iOS Simulator). Restart Metro after changing it
+- AI config: `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_MAX_TOKENS`, `GROQ_REASONING_EFFORT` in `api/.env` (server only; see `api/.env.example`)
 - E2E flows: `~/.maestro/bin/maestro test .maestro/` (Metro must be running; Maestro is not on PATH by default). On iOS, use `waitForAnimationToEnd` after navigation and tap the header back button (Maestro `back` doesn't work on iOS)
 
 **A task is done only when typecheck, lint and tests pass.**
 
 ## Architecture rules (non-negotiable)
 
-1. **The phone never holds secrets.** No OpenAI keys, Google tokens or MCP credentials in the mobile app. The app holds only a Supabase session (anonymous for guests, permanent for account holders) and talks only to our API.
-2. **All LLM calls run on the server.** The mobile app never calls OpenAI or any model directly. This includes guests and device control: the server agent decides, and the phone executes (rule 8).
+1. **The phone never holds secrets.** No AI provider keys (Groq or others), Google tokens or MCP credentials in the mobile app. The app holds only a Supabase session (anonymous for guests, permanent for account holders) and talks only to our API.
+2. **All LLM calls run on the server.** The mobile app never calls Groq or any model directly (on-device speech-to-text and text-to-speech are not LLM calls). This includes guests and device control: the server agent decides, and the phone executes (rule 8).
 3. **The server does the scheduling.** Reminders and recurring agents run as BullMQ jobs and reach the phone as push notifications. Do not rely on mobile background tasks.
 4. **Every tool is a typed function first.** Write and test the plain function (e.g. `createTask()`), then expose it as an agent tool. Validate all tool arguments with Zod. Tools never trust the model's input.
 5. **Risky actions require approval.** Each tool declares a risk level: `read`, `write` or `sensitive`. Sensitive tools (send email, delete data, spend money, change production) create an `approvals` row and pause the run until the user approves in the app.
@@ -188,10 +196,10 @@ Schema changes go through Supabase migrations, never manual edits in the dashboa
 
 ## Mobile app conventions
 
-- Expo Router file-based routes in `src/app/`: the app opens straight into `(tabs)/…` (Chat, Tasks, Inbox for approvals, Settings) as a guest. `sign-in` is a modal route opened when a Pro feature is used (via a `useRequirePro()` hook or `<ProGate>` component) or from Settings. Never block launch behind sign-in.
+- Expo Router file-based routes in `src/app/`: the app opens straight into `(tabs)/…` (Assistant, Controls, Tasks, Inbox for approvals, Settings) as a guest. `sign-in` is a modal route opened when a Pro feature is used (via a `useRequirePro()` hook or `<ProGate>` component) or from Settings. Never block launch behind sign-in.
 - Device tool handlers live in `src/device/` (one file per tool: shared Zod schema + handler + risk level + platform availability).
-- Chat streams responses from `POST /chat` via Server-Sent Events and shows tool calls as cards (e.g. "Created task: …").
-- Every interactive element that tests use gets a `testID` (kebab-case, e.g. `chat-input`, `send-button`, `task-row-<id>`, `approve-button`).
+- The Assistant is voice-only: it sends the transcribed text to `POST /voice` and speaks the reply. It doesn't display messages. (Streaming and tool-call cards may come later.)
+- Every interactive element that tests use gets a `testID` (kebab-case, e.g. `voice-orb`, `voice-status`, `task-row-<id>`, `approve-button`).
 - Types for API requests/responses come from `packages/shared`; never redefine them in the app.
 - Device integrations use Expo modules first (`expo-calendar`, `expo-contacts`, `expo-sms`, `expo-brightness`, `expo-notifications`, `expo-speech`, `expo-location`, `expo-intent-launcher`, `Linking`). Use custom native modules only where the table in "Device control" says so, and ask first. Never request `READ_SMS`, `SEND_SMS` or `READ_CALL_LOG`: Google Play rejects them for non-default SMS/phone apps, and iOS has no equivalent.
 
@@ -222,7 +230,7 @@ Schema changes go through Supabase migrations, never manual edits in the dashboa
 - Ask before adding a new dependency, changing the database schema, or changing the architecture rules above.
 - Never touch production resources, real user data, or credentials. Use dev Supabase and test accounts only.
 - Never put secrets in code, logs, `.claude/` files or commits.
-- When unsure about current library APIs (Expo, OpenAI Agents SDK, Supabase), check the official docs instead of guessing.
+- When unsure about current library APIs (Expo, Groq, Supabase), check the official docs instead of guessing.
 - **Route every task to the matching agent** (see "Agent routing" below). Don't do specialist work in the main conversation.
 
 ## Agent routing
@@ -258,6 +266,6 @@ Run independent steps in parallel (e.g. researching two separate questions). Run
 
 ## Out of scope for now
 
-- LangGraph, plugin marketplace, custom agent builder, multiple AI providers: later phases only.
+- LangGraph, plugin marketplace, custom agent builder, multiple AI providers at once (Groq is the single provider for now): later phases only.
 - Anything the "Device control" table marks ❌: reading SMS or call history, silent sending or calling, controlling other apps' internals, and background device automation.
 - Becoming the default SMS/phone app on Android, or Android Accessibility-service automation (Play policy restricts both).

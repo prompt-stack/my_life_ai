@@ -4,6 +4,7 @@ import { PrimaryButton } from '@/components/primary-button';
 import { ScreenPlaceholder } from '@/components/screen-placeholder';
 import { SecondaryButton } from '@/components/secondary-button';
 import { ThemedText } from '@/components/themed-text';
+import { AppearanceSection } from '@/features/settings/appearance-section';
 import { config } from '@/lib/config';
 import { useSession } from '@/lib/session';
 
@@ -17,6 +18,7 @@ export default function SettingsScreen() {
       title="Settings"
       description="Profile, memories and integrations will live here."
       testID="settings-screen">
+      <AppearanceSection />
       <ThemedText testID="account-status">
         {status === 'signedIn' ? 'Signed in (Pro)' : 'Guest'}
       </ThemedText>

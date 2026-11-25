@@ -1,4 +1,4 @@
-# Guest-first skeleton journey: opens as guest on Chat, uses the composer, visits every
+# Guest-first skeleton journey: opens as guest on Assistant, toggles the listening orb, visits every
 # Controls screen, opens the sign-in sheet from Settings, signs in and back out to guest.
 # Requires Metro running (`pnpm start` in mobile_app/) and the dev build installed.
 appId: com.mylifeai.app
@@ -6,25 +6,30 @@ appId: com.mylifeai.app
 - launchApp:
     stopApp: true
 
-# Guest: app opens straight on Chat, no login.
-# Known issue: ~1 in 6 dev cold launches briefly lands on another tab; select Chat explicitly.
+# Guest: app opens straight on Assistant (voice-only), no login.
+# Known issue: ~1 in 6 dev cold launches briefly lands on another tab; select Assistant explicitly.
 - waitForAnimationToEnd
-- tapOn: Chat
+- tapOn: Assistant
 - assertVisible:
-    id: chat-screen
-- takeScreenshot: 01-chat-guest
+    id: assistant-screen
+- assertVisible: Tap to speak
+- assertNotVisible:
+    id: voice-listening-indicator
+- takeScreenshot: 01-assistant-idle
 
-# Chat composer: Send disabled until there is text, clears after sending
+# Tapping the orb starts listening, tapping again stops it. On first run the OS microphone /
+# speech permission prompt may appear on the first tap (allow it manually or via a Maestro
+# permission setup). With no speech and no API running it ends in idle or an error status.
 - tapOn:
-    id: chat-input
-- inputText: Set an alarm for 6 AM
+    id: voice-orb
+- assertVisible:
+    id: voice-listening-indicator
+- assertVisible: "Listening.*"
+- takeScreenshot: 01b-assistant-listening
 - tapOn:
-    id: send-button
-- assertVisible: Remind me to check my emails at 9 AM
-# Tapping outside the input dismisses the keyboard so the tab bar is reachable
-- tapOn:
-    id: chat-messages-area
-- takeScreenshot: 01b-chat-keyboard-dismissed
+    id: voice-orb
+- assertNotVisible:
+    id: voice-listening-indicator
 
 # Controls menu
 - tapOn: Controls

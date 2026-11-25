@@ -1,7 +1,9 @@
 import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
+import { generateVoiceReply } from './agents/voice-assistant.js';
 import type { AppConfig } from './config/env.js';
+import type { ModelClient } from './lib/groq.js';
 import { notConfiguredTokenVerifier, type TokenVerifier } from './lib/auth.js';
 import { systemClock, type Clock } from './lib/clock.js';
 import { errorHandler } from './lib/http/error-handler.js';
@@ -16,6 +18,8 @@ export const JSON_BODY_LIMIT = '100kb';
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 const ONE_MINUTE_MS = 60 * 1000;
+/** Per IP. Exported so tests can assert the limit without hard-coding it. */
+export const VOICE_REQUESTS_PER_MINUTE = 20;
 
 /** Everything the app needs, injected so tests can pass fakes. No I/O at import time. */
 export interface AppDeps {
@@ -26,6 +30,8 @@ export interface AppDeps {
   uptimeSeconds?: () => number;
   /** TODO(Phase 1): pass the Supabase JWT verifier from server.ts. */
   tokenVerifier?: TokenVerifier;
+  /** Groq client; omitted when GROQ_API_KEY is unset (POST /voice then answers 503). */
+  modelClient?: ModelClient;
 }
 
 /** Builds the Express app without listening, so tests can drive it with supertest. */
@@ -64,6 +70,12 @@ export function createApp(deps: AppDeps): Express {
       clock,
       uptimeSeconds: deps.uptimeSeconds ?? (() => process.uptime()),
       chatRateLimiter: createRateLimiter({ windowMs: ONE_MINUTE_MS, limit: 20 }),
+      voiceRateLimiter: createRateLimiter({ windowMs: ONE_MINUTE_MS, limit: VOICE_REQUESTS_PER_MINUTE }),
+      voice: {
+        defaultTimezone: config.defaultTimezone,
+        generateReply: (input) =>
+          generateVoiceReply(input, { client: deps.modelClient, config: config.groq, logger }),
+      },
       tokenVerifier: deps.tokenVerifier ?? notConfiguredTokenVerifier,
     }),
   );

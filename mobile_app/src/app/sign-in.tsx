@@ -12,7 +12,7 @@ export default function SignInScreen() {
 
   const dismiss = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/chat');
+    else router.replace('/assistant');
   };
 
   return (
