@@ -64,3 +64,31 @@ export class NotImplementedError extends AppError {
     super(501, 'not_implemented', message);
   }
 }
+
+/** The AI provider is not configured on this server (e.g. GROQ_API_KEY missing). */
+export class AiNotConfiguredError extends AppError {
+  constructor(message = 'The assistant is not available right now') {
+    super(503, 'ai_not_configured', message);
+  }
+}
+
+/** The AI provider rate-limited us; the client may retry later. */
+export class AiRateLimitedError extends AppError {
+  constructor(message = 'The assistant is busy, please try again in a moment', options?: { cause?: unknown }) {
+    super(429, 'ai_rate_limited', message, options);
+  }
+}
+
+/** The AI provider timed out. */
+export class AiTimeoutError extends AppError {
+  constructor(message = 'The assistant took too long to answer, please try again', options?: { cause?: unknown }) {
+    super(504, 'ai_timeout', message, options);
+  }
+}
+
+/** Any other AI provider failure (network, 5xx, overloaded, bad model ID, auth). */
+export class AiUpstreamError extends AppError {
+  constructor(message = 'The assistant could not answer right now, please try again', options?: { cause?: unknown }) {
+    super(502, 'ai_upstream_error', message, options);
+  }
+}

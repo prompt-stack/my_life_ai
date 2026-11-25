@@ -6,9 +6,17 @@ import { isValidTimeZone } from '../lib/time.js';
  * `server.ts`) and the typed result is passed down. Nothing else reads
  * `process.env`. Future keys are listed (commented) in `.env.example`.
  */
+/** Default Groq model. Change it here (or override with GROQ_MODEL in .env). */
+export const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-20b';
+
+/** `off` plus the SDK's `reasoning_effort` values (groq-sdk ChatCompletionCreateParams). */
+export const GROQ_REASONING_EFFORTS = ['off', 'none', 'default', 'low', 'medium', 'high'] as const;
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  // 0.0.0.0 so a phone on the same Wi-Fi (and Docker port mapping) can reach the API.
+  HOST: z.string().min(1).max(255).default('0.0.0.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CORS_ORIGINS: z
     .string()
@@ -25,6 +33,16 @@ const envSchema = z.object({
     .string()
     .default('Asia/Manila')
     .refine(isValidTimeZone, { message: 'Must be a valid IANA timezone' }),
+  // Optional at parse time so tests and GET /health work without it; POST /voice
+  // answers 503 ai_not_configured when it is missing. Never log this value.
+  GROQ_API_KEY: z.string().trim().min(1).optional(),
+  // Any model ID, so switching models only needs an .env edit.
+  GROQ_MODEL: z.string().trim().min(1).max(100).default(DEFAULT_GROQ_MODEL),
+  // Sent as max_completion_tokens. Replies are spoken aloud, so they are short.
+  GROQ_MAX_TOKENS: z.coerce.number().int().min(16).max(8192).default(1024),
+  // gpt-oss models reason; `low` keeps voice fast. `off` omits reasoning_effort and
+  // include_reasoning for non-reasoning models, which reject them.
+  GROQ_REASONING_EFFORT: z.enum(GROQ_REASONING_EFFORTS).default('low'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -33,10 +51,20 @@ export interface AppConfig {
   nodeEnv: Env['NODE_ENV'];
   isProduction: boolean;
   port: number;
+  host: string;
   logLevel: Env['LOG_LEVEL'];
   corsOrigins: string[];
   trustProxyHops: number;
   defaultTimezone: string;
+  groq: GroqConfig;
+}
+
+export interface GroqConfig {
+  /** Secret. Never log it or put it in an error message. */
+  apiKey: string | undefined;
+  model: string;
+  maxTokens: number;
+  reasoningEffort: Env['GROQ_REASONING_EFFORT'];
 }
 
 export class EnvValidationError extends Error {
@@ -64,9 +92,16 @@ export function parseEnv(source: EnvSource): AppConfig {
     nodeEnv: env.NODE_ENV,
     isProduction: env.NODE_ENV === 'production',
     port: env.PORT,
+    host: env.HOST,
     logLevel: env.LOG_LEVEL,
     corsOrigins: env.CORS_ORIGINS,
     trustProxyHops: env.TRUST_PROXY,
     defaultTimezone: env.DEFAULT_TIMEZONE,
+    groq: {
+      apiKey: env.GROQ_API_KEY,
+      model: env.GROQ_MODEL,
+      maxTokens: env.GROQ_MAX_TOKENS,
+      reasoningEffort: env.GROQ_REASONING_EFFORT,
+    },
   };
 }

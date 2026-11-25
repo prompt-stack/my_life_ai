@@ -15,11 +15,11 @@ export default function TabsLayout() {
         default: { color: colors.textSecondary },
         selected: { color: colors.text },
       }}>
-      <NativeTabs.Trigger name="chat">
-        <NativeTabs.Trigger.Label>Chat</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="assistant">
+        <NativeTabs.Trigger.Label>Assistant</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          sf={{ default: 'bubble.left', selected: 'bubble.left.fill' }}
-          md={{ default: 'chat_bubble_outline', selected: 'chat_bubble' }}
+          sf={{ default: 'waveform.circle', selected: 'waveform.circle.fill' }}
+          md={{ default: 'graphic_eq', selected: 'graphic_eq' }}
         />
       </NativeTabs.Trigger>
 

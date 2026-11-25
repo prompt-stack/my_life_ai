@@ -1,3 +1,4 @@
+import { DeviceInfoSchema } from '@mylife/shared';
 import { z } from 'zod';
 
 /**
@@ -21,6 +22,9 @@ export const evalCaseSchema = z
     timezone: z.string().default('Asia/Manila'),
     /** Fixed "now" (UTC ISO) so time-relative prompts are deterministic. */
     now: z.iso.datetime(),
+    /** Phone the request comes from; decides which device tools are offered. */
+    device: DeviceInfoSchema.optional(),
+    /** An empty list means the agent must not call any tool (e.g. it should ask a question). */
     expectedToolCalls: z.array(expectedToolCallSchema),
   })
   .strict();

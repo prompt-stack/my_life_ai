@@ -1,0 +1,33 @@
+{
+  "name": "@mylife/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zod schemas and TypeScript types shared by the MyLife AI mobile app and API",
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "zod": "4.6.7"
+  }
+}

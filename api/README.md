@@ -1,8 +1,9 @@
 # MyLife AI API
 
-Express 5 + TypeScript backend for MyLife AI. Phase 0 skeleton: no external
-services (Supabase, Redis/BullMQ, OpenAI, Google, MCP) are connected yet. The
-places they plug in are marked `TODO(Phase N)`.
+Express 5 + TypeScript backend for MyLife AI. Phase 0 skeleton plus a voice
+slice: `POST /voice` calls Groq (`groq-sdk`, default model `openai/gpt-oss-20b`). Supabase,
+Redis/BullMQ, Google and MCP are not connected yet; the places they plug in are
+marked `TODO(Phase N)`.
 
 See `../CLAUDE.md` for architecture rules.
 
@@ -14,8 +15,9 @@ See `../CLAUDE.md` for architecture rules.
 ## Commands
 
 ```sh
+(cd ../packages/shared && pnpm install)   # builds @mylife/shared (dist/) first
 pnpm install
-cp .env.example .env      # optional; every variable has a safe default
+cp .env.example .env      # set GROQ_API_KEY for POST /voice; everything else has defaults
 pnpm dev                  # tsx watch, loads .env if present (node --env-file-if-exists)
 pnpm typecheck
 pnpm lint
@@ -23,7 +25,19 @@ pnpm test
 pnpm build && pnpm start  # compiled output in dist/
 ```
 
-Docker:
+After editing `../packages/shared/src`, run `pnpm build` there.
+
+Switch models by editing `GROQ_MODEL` (and `GROQ_REASONING_EFFORT=off` for
+non-reasoning models) in `.env`, then restart. See `.env.example` for options.
+
+Try the voice route (from the same machine, or use the LAN URL the dev server logs):
+
+```sh
+curl -s http://localhost:3000/voice -H 'content-type: application/json' \
+  -d '{"text":"What time is it?","history":[]}'
+```
+
+Docker (TODO: needs a repo-root build context now that `@mylife/shared` is a local link):
 
 ```sh
 docker build -t mylife-api .
@@ -35,7 +49,8 @@ docker run --rm -p 3000:3000 mylife-api
 | Method | Path | Status |
 | --- | --- | --- |
 | GET | `/health` | `{ status, version, uptimeSeconds, time }` (public) |
-| any | `/chat`, `/voice`, `/tasks`, `/approvals`, `/integrations` | 501 `not_implemented` |
+| POST | `/voice` | `{ text, history?, timezone?, device?, toolResult? }` → `{ reply, deviceAction? }` (schemas in `@mylife/shared`; 20/min per IP; 503 `ai_not_configured` without a key). Device actions (Android `setAlarm`) take two requests: see `src/routes/voice.ts` |
+| any | `/chat`, `/tasks`, `/approvals`, `/integrations` | 501 `not_implemented` |
 
 Every error uses one shape: `{ "error": { "code", "message", "requestId" } }`.
 Each response carries an `x-request-id` header (an incoming safe ID is echoed).

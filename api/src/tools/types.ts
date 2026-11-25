@@ -1,3 +1,4 @@
+import type { DevicePlatform, DeviceToolName } from '@mylife/shared';
 import type { z } from 'zod';
 
 export const RISK_LEVELS = ['read', 'write', 'sensitive'] as const;
@@ -62,5 +63,34 @@ export function toolError(code: string, message: string): ToolFailure {
 export function defineTool<TInput extends z.ZodType, TOutput>(
   tool: ToolDefinition<TInput, TOutput>,
 ): ToolDefinition<TInput, TOutput> {
+  return tool;
+}
+
+/** JSON Schema object shown to the model as a tool's `parameters`. */
+export type JsonSchemaObject = Record<string, unknown>;
+
+/**
+ * A tool the phone executes (CLAUDE.md rule 8). The server only offers it to
+ * the model and validates the arguments; it never runs anything itself, so
+ * there is no `execute`. The phone's handler lives in `mobile_app/src/device/`.
+ */
+export interface DeviceToolDefinition<TArgs extends z.ZodType = z.ZodType> {
+  /** Name from the shared allowlist; the same string the model and the phone see. */
+  name: DeviceToolName;
+  description: string;
+  riskLevel: RiskLevel;
+  target: 'device';
+  /** Platforms whose app can run this tool. */
+  platforms: readonly DevicePlatform[];
+  /** Shared Zod schema; every model-provided argument is parsed with it. */
+  input: TArgs;
+  /** Hand-written JSON Schema mirroring `input` (kept in sync by a test). */
+  parameters: JsonSchemaObject;
+  /** Spoken when the model calls the tool with arguments that fail validation. */
+  clarificationReply: string;
+}
+
+/** Identity helper that keeps the argument type inferred at the definition site. */
+export function defineDeviceTool<TArgs extends z.ZodType>(tool: DeviceToolDefinition<TArgs>): DeviceToolDefinition<TArgs> {
   return tool;
 }

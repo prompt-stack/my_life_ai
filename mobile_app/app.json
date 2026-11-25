@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.mylifeai.app"
+      "bundleIdentifier": "com.mylifeai.app",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "MyLife AI turns your speech into text so the assistant can understand your requests.",
+        "NSMicrophoneUsageDescription": "MyLife AI listens to your voice so you can ask it to do things."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +23,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.mylifeai.app"
+      "package": "com.mylifeai.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "com.android.alarm.permission.SET_ALARM"
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -35,11 +43,33 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "MyLife AI listens to your voice so you can ask it to do things.",
+          "speechRecognitionPermission": "MyLife AI turns your speech into text so the assistant can understand your requests.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "fe76c829-32c5-4b68-92d7-1bc152a6ca06"
+      }
+    },
+    "owner": "reypatoy"
   }
 }
