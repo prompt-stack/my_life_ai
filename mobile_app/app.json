@@ -25,8 +25,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.mylifeai.app",
       "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "com.android.alarm.permission.SET_ALARM"
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -54,6 +53,7 @@
           ]
         }
       ],
+      "./modules/mylife-alarms/app.plugin.js",
       "expo-dev-client"
     ],
     "experiments": {

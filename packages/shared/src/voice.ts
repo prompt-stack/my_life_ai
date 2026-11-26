@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import {
-  DEVICE_CALL_ID_MAX_LENGTH,
-  DeviceActionSchema,
-  DeviceInfoSchema,
-  DeviceToolResultSchema,
-  SetAlarmArgsSchema,
-} from './device.js';
+  CreateAlarmArgsSchema,
+  DeleteAlarmArgsSchema,
+  PreviewAlarmSoundArgsSchema,
+  SnoozeAlarmArgsSchema,
+  StopAlarmArgsSchema,
+  UpdateAlarmArgsSchema,
+} from './alarms.js';
+import { DEVICE_CALL_ID_MAX_LENGTH, DeviceActionSchema, DeviceInfoSchema, DeviceToolResultSchema } from './device.js';
 import { isValidTimeZone } from './time.js';
 
 /** Max characters for one spoken turn (user transcript or assistant reply). */
@@ -26,18 +28,68 @@ export type VoiceTurn = z.infer<typeof VoiceTurnSchema>;
  * Continuation turn: the phone ran `deviceAction` and reports the outcome.
  * `callId`, `name` and `args` echo the action exactly; the server re-validates them.
  */
+const ToolResultCallIdSchema = z.string().min(1).max(DEVICE_CALL_ID_MAX_LENGTH);
+
 export const VoiceToolResultSchema = z.discriminatedUnion('name', [
   z
     .object({
-      callId: z.string().min(1).max(DEVICE_CALL_ID_MAX_LENGTH),
-      name: z.literal('setAlarm'),
-      args: SetAlarmArgsSchema,
+      callId: ToolResultCallIdSchema,
+      name: z.literal('createAlarm'),
+      args: CreateAlarmArgsSchema,
+      result: DeviceToolResultSchema,
+    })
+    .strict(),
+  z
+    .object({
+      callId: ToolResultCallIdSchema,
+      name: z.literal('updateAlarm'),
+      args: UpdateAlarmArgsSchema,
+      result: DeviceToolResultSchema,
+    })
+    .strict(),
+  z
+    .object({
+      callId: ToolResultCallIdSchema,
+      name: z.literal('deleteAlarm'),
+      args: DeleteAlarmArgsSchema,
+      result: DeviceToolResultSchema,
+    })
+    .strict(),
+  z
+    .object({
+      callId: ToolResultCallIdSchema,
+      name: z.literal('previewAlarmSound'),
+      args: PreviewAlarmSoundArgsSchema,
+      result: DeviceToolResultSchema,
+    })
+    .strict(),
+  z
+    .object({
+      callId: ToolResultCallIdSchema,
+      name: z.literal('stopAlarm'),
+      args: StopAlarmArgsSchema,
+      result: DeviceToolResultSchema,
+    })
+    .strict(),
+  z
+    .object({
+      callId: ToolResultCallIdSchema,
+      name: z.literal('snoozeAlarm'),
+      args: SnoozeAlarmArgsSchema,
       result: DeviceToolResultSchema,
     })
     .strict(),
 ]);
 export type VoiceToolResult = z.infer<typeof VoiceToolResultSchema>;
 export type VoiceToolResultInput = z.input<typeof VoiceToolResultSchema>;
+
+/**
+ * How the user started this voice turn: tapping the orb, saying the trigger
+ * word "AI", a speak button elsewhere in the app, or a deep link. Used for
+ * logs, and so the server can strip a leftover trigger word from `wake_word` turns.
+ */
+export const VoiceInvocationSchema = z.enum(['tap', 'wake_word', 'speak_button', 'deep_link']);
+export type VoiceInvocation = z.infer<typeof VoiceInvocationSchema>;
 
 /** `POST /voice` request body: the on-device transcript plus recent history. */
 export const VoiceRequestSchema = z
@@ -53,6 +105,8 @@ export const VoiceRequestSchema = z
      * `text` and `history` must be the same as in the request that produced the action.
      */
     toolResult: VoiceToolResultSchema.optional(),
+    /** How this turn was started. Optional so older app builds keep working. */
+    invocation: VoiceInvocationSchema.optional(),
   })
   .strict();
 /** Parsed (output) shape: `history` is always present. */

@@ -1,11 +1,21 @@
 import type { DeviceAction, DeviceToolName, DeviceToolResult } from '@mylife/shared';
 import { Platform } from 'react-native';
 
-import { setAlarm } from './set-alarm';
+import { createAlarmTool } from './create-alarm';
+import { deleteAlarmTool } from './delete-alarm';
+import { previewAlarmSoundTool } from './preview-alarm-sound';
+import { snoozeAlarmTool } from './snooze-alarm';
+import { stopAlarmTool } from './stop-alarm';
 import type { DeviceToolHandler } from './types';
+import { updateAlarmTool } from './update-alarm';
 
 const registry: Record<DeviceToolName, DeviceToolHandler> = {
-  setAlarm,
+  createAlarm: createAlarmTool,
+  updateAlarm: updateAlarmTool,
+  deleteAlarm: deleteAlarmTool,
+  previewAlarmSound: previewAlarmSoundTool,
+  stopAlarm: stopAlarmTool,
+  snoozeAlarm: snoozeAlarmTool,
 };
 
 function currentPlatform(): 'android' | 'ios' | null {

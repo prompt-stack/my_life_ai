@@ -1,4 +1,10 @@
-import { DEVICE_CALL_ID_MAX_LENGTH, DeviceActionSchema, type DeviceAction, type VoiceToolResult } from '@mylife/shared';
+import {
+  DEVICE_CALL_ID_MAX_LENGTH,
+  DeviceActionSchema,
+  type DeviceAction,
+  type DeviceInfo,
+  type VoiceToolResult,
+} from '@mylife/shared';
 import { randomUUID } from 'node:crypto';
 import { APIError } from 'groq-sdk';
 import type {
@@ -22,10 +28,14 @@ export type DeviceToolCallOutcome =
   | { kind: 'action'; action: DeviceAction }
   /** The model called an offered tool with bad arguments: ask the user instead. */
   | { kind: 'invalid'; tool: DeviceToolDefinition; callId: string }
+  /** Valid call, but server code decided to speak first (e.g. confirm the closest alarm). */
+  | { kind: 'reply'; tool: DeviceToolDefinition; callId: string; reply: string }
   /** No call to an offered tool (plain text reply, or a tool we never offered). */
   | { kind: 'none'; ignoredToolNames: string[] };
 
 function parseJson(text: string): unknown {
+  // Tools without arguments may come back with an empty string instead of "{}".
+  if (text.trim() === '') return {};
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -39,13 +49,16 @@ function usableCallId(id: string): string {
 }
 
 /**
- * Picks the first call to an offered device tool and validates its arguments
- * with the shared schema (rule 4: model output is untrusted). Only one action
- * per turn: any further calls are ignored.
+ * Picks the first call to an offered device tool, validates the model's
+ * arguments (rule 4: model output is untrusted), lets the tool resolve them
+ * deterministically (e.g. match a known alarm), and validates the final action
+ * with the shared schema. Only one action per turn: further calls are ignored.
  */
 export function pickDeviceToolCall(
   toolCalls: readonly ChatCompletionMessageToolCall[] | undefined,
   offered: readonly DeviceToolDefinition[],
+  device?: DeviceInfo,
+  userText?: string,
 ): DeviceToolCallOutcome {
   const calls = toolCalls ?? [];
   for (const call of calls) {
@@ -53,11 +66,15 @@ export function pickDeviceToolCall(
     if (!tool) continue;
 
     const callId = usableCallId(call.id);
-    const parsed = DeviceActionSchema.safeParse({
-      callId,
-      name: tool.name,
-      args: parseJson(call.function.arguments),
-    });
+    const modelArgs = (tool.modelInput ?? tool.input).safeParse(parseJson(call.function.arguments));
+    if (!modelArgs.success) return { kind: 'invalid', tool, callId };
+
+    const resolution = tool.resolve
+      ? tool.resolve(modelArgs.data, { device, ...(userText === undefined ? {} : { userText }) })
+      : { kind: 'action' as const, args: modelArgs.data };
+    if (resolution.kind === 'reply') return { kind: 'reply', tool, callId, reply: resolution.reply };
+
+    const parsed = DeviceActionSchema.safeParse({ callId, name: tool.name, args: resolution.args });
     if (!parsed.success) return { kind: 'invalid', tool, callId };
     return { kind: 'action', action: parsed.data };
   }

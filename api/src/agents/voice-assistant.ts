@@ -1,4 +1,4 @@
-import type { DeviceInfo, VoiceResponse, VoiceToolResult, VoiceTurn } from '@mylife/shared';
+import type { Alarm, DeviceInfo, VoiceInvocation, VoiceResponse, VoiceToolResult, VoiceTurn } from '@mylife/shared';
 import type {
   ChatCompletion,
   ChatCompletionCreateParamsNonStreaming,
@@ -8,41 +8,24 @@ import type { GroqConfig } from '../config/env.js';
 import { toAiError, type ModelClient } from '../lib/groq.js';
 import { AiNotConfiguredError, ValidationError } from '../lib/errors.js';
 import type { Logger } from '../lib/logger.js';
+import { alarmSoundName, formatClockTime, formatRepeat } from '../tools/alarm-format.js';
 import type { DeviceToolCatalog } from '../tools/device-catalog.js';
 import { defaultDeviceToolCatalog } from '../tools/index.js';
 import type { DeviceToolDefinition } from '../tools/types.js';
+import { isAlarmRequest } from './alarm-intent.js';
+import { deviceFailureReply } from './device-failure-replies.js';
 import { isToolUseFailed, pickDeviceToolCall, toModelTools, toolResultMessages } from './voice-device-tools.js';
-
-/**
- * Stable instructions. Kept first and byte-identical across requests so the
- * prefix stays cacheable; the per-request time and device message comes after it.
- */
-export const VOICE_SYSTEM_PROMPT = [
-  'You are MyLife AI, a friendly personal voice assistant.',
-  'Your replies are read aloud by text-to-speech, so answer in one to three short, conversational sentences.',
-  'Use plain spoken text only: no markdown, lists, headings, emoji, URLs or code.',
-  'Write numbers, times and dates the way a person would say them.',
-  // Phone actions. Risk levels and capability checks are enforced in code; these lines only shape the conversation.
-  'You can act on the phone only through the tools provided in this request, and which tools are provided depends on the phone. Never say you did something on the phone unless a tool result says it succeeded.',
-  'You cannot set timers, send texts, place calls, change settings, or add calendar events or tasks yet. If asked, say briefly that it is coming soon, then offer to help another way.',
-  'Alarms. Apply these rules in order.',
-  '1. If the setAlarm tool is not provided in this request, you cannot set alarms on this phone. Say so right away and do not ask any questions about the time. On an iPhone, say: I can\'t set alarms on iPhone yet.',
-  '2. A time that includes AM or PM in any form (AM, am, a.m., PM, pm, p.m.) is complete: call setAlarm right away and never ask "AM or PM?". Also complete: 24-hour times like 18:00, noon, midnight, "in the morning", "in the evening", "tonight", and relative times like "in 20 minutes" or "in an hour". For a relative time, add it to the current local time given in the next message and round to the minute.',
-  '3. Ask a question only if the time is missing (for "set an alarm", ask what time) or if the user gives an hour from 1 to 12 with no AM or PM and nothing else settles it (for "at 7" or "at 7:30", ask "7 AM or 7 PM?").',
-  'Examples: "Set an alarm for 7 AM" means setAlarm with hour 7, minute 0. "Alarm at 7 p.m." means hour 19, minute 0. "Wake me at 6:30am" means hour 6, minute 30. "Set an alarm at 7" means ask "7 AM or 7 PM?".',
-  'setAlarm takes the hour in 24-hour form and the minute. The phone sets the alarm for the next time that clock time comes around. If the user asks for a specific other day or date, such as next Friday, explain that you can only set it for the next time that clock time comes around and ask if that is OK. Repeating alarms are not supported yet.',
-  'If the user says what the alarm is for, such as wake up or take medicine, pass it as a short label; otherwise leave the label out. Call setAlarm at most once per request.',
-  'When a setAlarm result says ok, confirm the time in 12-hour spoken form, for example: Done, your alarm is set for 6:30 AM. If it failed, say so honestly in one sentence and suggest what the user can do.',
-  'If you do not know something or it depends on live data you do not have, say so honestly instead of guessing.',
-].join('\n');
+import { DEVICE_RESULT_SYSTEM_PROMPT, userTurnSystemPrompt, VOICE_SYSTEM_PROMPT } from './voice-prompts.js';
+import { stripWakeWord } from './wake-word.js';
 
 export const REFUSAL_REPLY = "Sorry, I can't help with that one.";
 export const EMPTY_REPLY = "Sorry, I didn't catch that. Could you say it again?";
 /** Spoken when Groq keeps rejecting the model's tool call (`tool_use_failed`). */
 export const TOOL_TROUBLE_REPLY = 'Sorry, I had trouble with that, please try again.';
-/** Continuation fallbacks when the model returns no text. Never claim success unless the phone said ok. */
+/** Continuation fallback when the model returns no text after a successful action (failures use device-failure-replies). */
 export const DEVICE_DONE_REPLY = 'Done.';
-export const DEVICE_FAILED_REPLY = "Sorry, I couldn't do that on your phone.";
+/** Spoken when a wake-word turn held only the trigger ("AI" / "Hey AI"); no model call. */
+export const WAKE_ONLY_REPLY = 'Yes? What can I do for you?';
 
 /** One try plus one retry for Groq `tool_use_failed`. */
 export const TOOL_USE_FAILED_MAX_ATTEMPTS = 2;
@@ -62,6 +45,8 @@ export interface VoiceReplyInput {
   device?: DeviceInfo;
   /** Set on the continuation turn after the phone ran a device action. */
   toolResult?: VoiceToolResult;
+  /** How the turn was started; `wake_word` turns get a leading "AI" stripped. Logged, never the text. */
+  invocation?: VoiceInvocation;
   requestId?: string;
   /** Aborts the model call when the client disconnects. */
   signal?: AbortSignal;
@@ -92,30 +77,144 @@ const PLATFORM_NAMES: Record<DeviceInfo['platform'], string> = {
   web: 'a web browser',
 };
 
+const ALARM_TOOLS: ReadonlySet<string> = new Set([
+  'createAlarm',
+  'updateAlarm',
+  'deleteAlarm',
+  'previewAlarmSound',
+  'stopAlarm',
+  'snoozeAlarm',
+]);
+
+/** What the model should say about alarms when no alarm tools are offered. */
+const ALARMS_UNAVAILABLE: Record<DeviceInfo['platform'], string> = {
+  android: "Alarms aren't available in this version of the app.",
+  ios: "I can't set alarms on this iPhone yet.",
+  web: "I can't set alarms here.",
+};
+
 /**
- * Tells the model which phone it is on and, for a normal turn, exactly which
- * phone tools it has, so it explains missing features instead of asking
- * questions about them. `toolNames` is omitted on the continuation turn.
+ * Phone-reported strings (model name, alarm labels) are untrusted data: keep
+ * letters, digits and light punctuation only, so they read as a name and can
+ * never look like instructions or break the sentence they sit in.
  */
-export function formatDeviceContext(
-  device: DeviceInfo | undefined,
-  toolNames?: readonly string[],
-): string | undefined {
+export function sanitizeDeviceText(value: string | undefined, maxLength = 60): string {
+  if (!value) return '';
+  return value
+    .replace(/[^\p{L}\p{N} .,'&+()-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+/** "Xiaomi POCO F9 Pro", without repeating the maker when the model name already has it. */
+function formatPhoneName(device: DeviceInfo): string {
+  const maker = sanitizeDeviceText(device.manufacturer ?? device.brand);
+  const model = sanitizeDeviceText(device.model);
+  return model.toLowerCase().startsWith(maker.toLowerCase()) ? model : `${maker} ${model}`.trim();
+}
+
+function byTimeOfDay(a: Alarm, b: Alarm): number {
+  return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
+}
+
+/** "6:30 AM, Wake up, Sunrise, every weekday" (+ ", off" when off; the label is sanitized phone text). */
+function describeAlarm(alarm: Alarm): string {
+  const label = sanitizeDeviceText(alarm.label);
+  return [
+    formatClockTime(alarm),
+    ...(label ? [label] : []),
+    alarmSoundName(alarm.sound),
+    formatRepeat(alarm.weekdays),
+    ...(alarm.enabled ? [] : ['off']),
+  ].join(', ');
+}
+
+/** "Alarms: 6:30 AM, Wake up, Sunrise, every weekday; 9:00 PM, Piano, one time, off." By time of day. */
+export function formatAlarmList(alarms: readonly Alarm[] | undefined): string {
+  if (!alarms || alarms.length === 0) return 'No alarms yet.';
+  return `Alarms: ${[...alarms].sort(byTimeOfDay).map(describeAlarm).join('; ')}.`;
+}
+
+/**
+ * "An alarm is ringing now: 6:30 AM (Wake up)." from the phone's list, plus
+ * what to say about snoozing when this phone can't snooze (iOS reports only
+ * stopAlarm). Undefined when nothing rings.
+ */
+export function formatRingingAlarm(device: DeviceInfo): string | undefined {
+  if (!device.ringingAlarmId) return undefined;
+  const alarm = device.alarms?.find((candidate) => candidate.id === device.ringingAlarmId);
+  const label = sanitizeDeviceText(alarm?.label);
+  const ringing = alarm
+    ? `An alarm is ringing now: ${formatClockTime(alarm)}${label ? ` (${label})` : ''}.`
+    : 'An alarm is ringing now.';
+  if (device.capabilities.includes('snoozeAlarm')) return ringing;
+  const noSnooze =
+    device.platform === 'ios'
+      ? "I can't snooze alarms on iPhone yet, but I can stop it."
+      : "I can't snooze alarms on this phone, but I can stop it.";
+  return `${ringing} If asked to snooze, say: ${noSnooze}`;
+}
+
+/**
+ * What the model hears about alarms on a normal turn:
+ * - `included`: alarm tools and rules are in this request, so list the alarms.
+ * - `deferred`: the phone has alarm tools but this request is not about alarms
+ *   (see alarm-intent.ts), so nothing is said, to save tokens.
+ * - `unavailable`: the phone has no alarm tools; one line says what to answer.
+ */
+export type AlarmContext = 'included' | 'deferred' | 'unavailable';
+
+/**
+ * Tells the model which phone it is on and, for a normal turn, the MyLife
+ * alarms on it (or what to say when alarms are unavailable), so it answers
+ * alarm questions from the list and explains missing features instead of
+ * asking questions. `alarms` is omitted on the continuation turn.
+ */
+export function formatDeviceContext(device: DeviceInfo | undefined, alarms?: AlarmContext): string | undefined {
   if (!device) return undefined;
-  const platformLine = `The user is talking to you on ${PLATFORM_NAMES[device.platform]}.`;
-  if (!toolNames) return platformLine;
-  const toolsLine =
-    toolNames.length > 0
-      ? `Phone tools available on this phone: ${toolNames.join(', ')}.`
-      : 'No phone tools are available on this phone, so you cannot set alarms here.';
-  return `${platformLine} ${toolsLine}`;
+  const platform = PLATFORM_NAMES[device.platform];
+  if (!alarms) return `The user is talking to you on ${platform}.`;
+
+  const phoneName = formatPhoneName(device);
+  const parts = [`The user is talking to you on ${platform}${phoneName ? ` (${phoneName})` : ''}.`];
+  if (alarms === 'included') {
+    parts.push(formatAlarmList(device.alarms));
+    const ringing = formatRingingAlarm(device);
+    if (ringing) parts.push(ringing);
+  } else if (alarms === 'unavailable') {
+    parts.push(
+      `Alarms are not available here: if asked to set, change or delete one, say only: ${ALARMS_UNAVAILABLE[device.platform]}`,
+    );
+  }
+  return parts.join(' ');
 }
 
 /** Per-request context (time, then device), sent after the stable prompt. */
-function formatRequestContext(input: VoiceReplyInput, toolNames?: readonly string[]): string {
-  const deviceContext = formatDeviceContext(input.device, toolNames);
+function formatRequestContext(input: VoiceReplyInput, alarms?: AlarmContext): string {
+  const deviceContext = formatDeviceContext(input.device, alarms);
   const timeContext = formatTimeContext(input.now, input.timezone);
   return deviceContext ? `${timeContext}\n${deviceContext}` : timeContext;
+}
+
+/**
+ * The device tools to send with this request. Tools whose `offerOnlyWhen`
+ * says no right now are dropped (stopAlarm and snoozeAlarm while nothing
+ * rings). Alarm tools (and with them the alarm rules and list) are left out
+ * when the request is clearly not about alarms: they are most of the prompt.
+ * While an alarm rings they are always sent, so "stop" or "enough" works.
+ * Other device tools are always sent.
+ */
+function toolsForRequest(
+  offered: readonly DeviceToolDefinition[],
+  input: VoiceReplyInput,
+): { tools: readonly DeviceToolDefinition[]; alarms: AlarmContext } {
+  const hasAlarmTools = offered.some((tool) => ALARM_TOOLS.has(tool.name));
+  const offeredNow = offered.filter((tool) => tool.offerOnlyWhen?.(input.device) ?? true);
+  if (!hasAlarmTools) return { tools: offeredNow, alarms: 'unavailable' };
+  const alarmRinging = Boolean(input.device?.ringingAlarmId);
+  if (isAlarmRequest(input.text, input.history, { alarmRinging })) return { tools: offeredNow, alarms: 'included' };
+  return { tools: offeredNow.filter((tool) => !ALARM_TOOLS.has(tool.name)), alarms: 'deferred' };
 }
 
 /**
@@ -127,11 +226,12 @@ export function toMessageParams(
   history: VoiceTurn[],
   text: string,
   timeContext: string,
+  systemPrompt: string = VOICE_SYSTEM_PROMPT,
 ): ChatCompletionMessageParam[] {
   const firstUserIndex = history.findIndex((turn) => turn.role === 'user');
   const usable = firstUserIndex === -1 ? [] : history.slice(firstUserIndex);
   return [
-    { role: 'system', content: VOICE_SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt },
     { role: 'system', content: timeContext },
     ...usable.map((turn): ChatCompletionMessageParam => ({ role: turn.role, content: turn.text })),
     { role: 'user', content: text },
@@ -177,26 +277,71 @@ function buildParams(
 interface CallContext {
   client: ModelClient;
   logger: Logger;
-  logContext: { requestId?: string; model: string };
+  logContext: { requestId?: string; model: string; invocation?: VoiceInvocation };
   signal?: AbortSignal;
+}
+
+/** Which voice turn a model call belongs to (for logs). */
+type Turn = 'user' | 'device_result';
+
+/**
+ * Timing and token details for one model call. Groq adds `queue_time`,
+ * `prompt_time`, `completion_time` and `total_time` (seconds) to `usage`; the
+ * gap between our latency and Groq's `total_time` is network, queueing outside
+ * Groq's count, or hidden SDK retries (logged separately by the SDK logger).
+ */
+export function modelCallMetrics(completion: ChatCompletion): Record<string, number | string | undefined> {
+  const usage = completion.usage;
+  const toMs = (seconds: number | undefined) => (seconds === undefined ? undefined : Math.round(seconds * 1000));
+  return {
+    finishReason: completion.choices[0]?.finish_reason,
+    inputTokens: usage?.prompt_tokens,
+    // Groq prompt caching: input tokens served from cache (absent when the model or account has none).
+    cachedTokens: usage?.prompt_tokens_details?.cached_tokens,
+    outputTokens: usage?.completion_tokens,
+    reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens,
+    groqQueueMs: toMs(usage?.queue_time),
+    groqPromptMs: toMs(usage?.prompt_time),
+    groqCompletionMs: toMs(usage?.completion_time),
+    groqTotalMs: toMs(usage?.total_time),
+  };
 }
 
 /**
  * Calls the model. Retries once on Groq `tool_use_failed`; returns undefined
  * if it fails again so the caller can speak an apology. Other errors map to
- * domain errors.
+ * domain errors. Logs one line per attempt (latency, Groq timings, attempt,
+ * whether tools were offered), never the user's text.
  */
 async function createCompletion(
   params: ChatCompletionCreateParamsNonStreaming,
   ctx: CallContext,
+  turn: Turn,
 ): Promise<ChatCompletion | undefined> {
+  const toolsOffered = params.tools?.length ?? 0;
   for (let attempt = 1; attempt <= TOOL_USE_FAILED_MAX_ATTEMPTS; attempt += 1) {
+    const startedAt = performance.now();
+    const latencyMs = () => Math.round(performance.now() - startedAt);
     try {
-      return await ctx.client.chat.completions.create(params, ctx.signal ? { signal: ctx.signal } : undefined);
+      const completion = await ctx.client.chat.completions.create(
+        params,
+        ctx.signal ? { signal: ctx.signal } : undefined,
+      );
+      ctx.logger.info(
+        { ...ctx.logContext, turn, attempt, toolsOffered, latencyMs: latencyMs(), ...modelCallMetrics(completion) },
+        'model call completed',
+      );
+      return completion;
     } catch (err) {
-      if (!isToolUseFailed(err)) throw toAiError(err, ctx.logger, ctx.logContext);
+      if (!isToolUseFailed(err)) {
+        ctx.logger.info({ ...ctx.logContext, turn, attempt, toolsOffered, latencyMs: latencyMs() }, 'model call failed');
+        throw toAiError(err, ctx.logger, ctx.logContext);
+      }
       // `failed_generation` may echo the user's words, so it is never logged.
-      ctx.logger.warn({ ...ctx.logContext, attempt }, 'model produced an invalid tool call (tool_use_failed)');
+      ctx.logger.warn(
+        { ...ctx.logContext, turn, attempt, toolsOffered, latencyMs: latencyMs() },
+        'model produced an invalid tool call (tool_use_failed)',
+      );
     }
   }
   return undefined;
@@ -212,6 +357,7 @@ function spokenText(completion: ChatCompletion, ctx: CallContext, fallback: stri
   return fallback;
 }
 
+/** One summary line per voice turn; `latencyMs` covers every attempt, including a tool_use_failed retry. */
 function logCompletion(completion: ChatCompletion, ctx: CallContext, startedAt: number, extra: object): void {
   // TODO(Phase 1): write this to agent_runs instead of only logging it (CLAUDE.md rule 6).
   ctx.logger.info(
@@ -270,17 +416,24 @@ async function continueAfterDeviceAction(
     'device tool result received',
   );
 
+  // Failures get a fixed reply per error code (no model call), so the reason is never confused.
+  if (!toolResult.result.ok) {
+    return {
+      reply: deviceFailureReply(toolResult, toolResult.result.error, input.device),
+    };
+  }
+
   const messages = [
-    ...toMessageParams(input.history, input.text, formatRequestContext(input)),
+    ...toMessageParams(input.history, input.text, formatRequestContext(input), DEVICE_RESULT_SYSTEM_PROMPT),
     ...toolResultMessages(toolResult),
   ];
   const startedAt = performance.now();
-  const completion = await createCompletion(buildParams(messages, config, []), ctx);
+  const completion = await createCompletion(buildParams(messages, config, []), ctx, 'device_result');
   if (!completion) return { reply: TOOL_TROUBLE_REPLY };
 
   logCompletion(completion, ctx, startedAt, { turn: 'device_result' });
   if (wasFiltered(completion)) return { reply: REFUSAL_REPLY };
-  return { reply: spokenText(completion, ctx, toolResult.result.ok ? DEVICE_DONE_REPLY : DEVICE_FAILED_REPLY) };
+  return { reply: spokenText(completion, ctx, DEVICE_DONE_REPLY) };
 }
 
 /**
@@ -288,14 +441,23 @@ async function continueAfterDeviceAction(
  * calls a device tool offered for this phone, the response also carries a
  * validated `deviceAction` for the phone to run.
  */
-export async function generateVoiceReply(input: VoiceReplyInput, deps: VoiceAssistantDeps): Promise<VoiceResponse> {
+export async function generateVoiceReply(
+  rawInput: VoiceReplyInput,
+  deps: VoiceAssistantDeps,
+): Promise<VoiceResponse> {
   const { client, config, logger } = deps;
+  // A continuation repeats the first request's text, so it is stripped the same way.
+  const input = rawInput.invocation === 'wake_word' ? { ...rawInput, text: stripWakeWord(rawInput.text) } : rawInput;
+  if (input.text.length === 0 && !input.toolResult) {
+    logger.info({ requestId: input.requestId, invocation: input.invocation }, 'wake word only, no request');
+    return { reply: WAKE_ONLY_REPLY };
+  }
   if (!client) throw new AiNotConfiguredError();
 
   const ctx: CallContext = {
     client,
     logger,
-    logContext: { requestId: input.requestId, model: config.model },
+    logContext: { requestId: input.requestId, model: config.model, invocation: input.invocation },
     ...(input.signal ? { signal: input.signal } : {}),
   };
   const offered = (deps.deviceTools ?? defaultDeviceToolCatalog).availableFor(input.device);
@@ -304,16 +466,23 @@ export async function generateVoiceReply(input: VoiceReplyInput, deps: VoiceAssi
     return continueAfterDeviceAction(input, input.toolResult, offered, ctx, config);
   }
 
-  const toolNames = offered.map((tool) => tool.name);
-  const messages = toMessageParams(input.history, input.text, formatRequestContext(input, toolNames));
+  const { tools, alarms } = toolsForRequest(offered, input);
+  const toolNames = tools.map((tool) => tool.name);
+  const messages = toMessageParams(
+    input.history,
+    input.text,
+    formatRequestContext(input, alarms),
+    userTurnSystemPrompt(alarms === 'included'),
+  );
   const startedAt = performance.now();
-  const completion = await createCompletion(buildParams(messages, config, offered), ctx);
+  const completion = await createCompletion(buildParams(messages, config, tools), ctx, 'user');
   if (!completion) return { reply: TOOL_TROUBLE_REPLY };
 
-  const outcome = pickDeviceToolCall(completion.choices[0]?.message.tool_calls, offered);
+  const outcome = pickDeviceToolCall(completion.choices[0]?.message.tool_calls, tools, input.device, input.text);
   logCompletion(completion, ctx, startedAt, {
     turn: 'user',
     toolsOffered: toolNames,
+    alarmContext: input.device ? alarms : undefined,
     toolCall: outcome.kind === 'none' ? undefined : outcome.kind,
   });
 
@@ -326,6 +495,15 @@ export async function generateVoiceReply(input: VoiceReplyInput, deps: VoiceAssi
       'model called a device tool with invalid arguments',
     );
     return { reply: outcome.tool.clarificationReply };
+  }
+
+  if (outcome.kind === 'reply') {
+    // No action yet: e.g. the spoken time was not an exact known alarm, so ask before acting.
+    logger.info(
+      { ...ctx.logContext, tool: outcome.tool.name, callId: outcome.callId },
+      'device action needs confirmation',
+    );
+    return { reply: outcome.reply };
   }
 
   if (outcome.kind === 'action') {

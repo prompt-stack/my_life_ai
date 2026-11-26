@@ -5,6 +5,8 @@ import { ScreenPlaceholder } from '@/components/screen-placeholder';
 import { SecondaryButton } from '@/components/secondary-button';
 import { ThemedText } from '@/components/themed-text';
 import { AppearanceSection } from '@/features/settings/appearance-section';
+import { WakeDebugPanel } from '@/features/voice/components/wake-debug-panel';
+import { WakeWordSection } from '@/features/voice/components/wake-word-section';
 import { config } from '@/lib/config';
 import { useSession } from '@/lib/session';
 
@@ -19,6 +21,8 @@ export default function SettingsScreen() {
       description="Profile, memories and integrations will live here."
       testID="settings-screen">
       <AppearanceSection />
+      <WakeWordSection />
+      {__DEV__ ? <WakeDebugPanel /> : null}
       <ThemedText testID="account-status">
         {status === 'signedIn' ? 'Signed in (Pro)' : 'Guest'}
       </ThemedText>

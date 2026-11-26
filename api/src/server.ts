@@ -85,7 +85,7 @@ async function main(): Promise<void> {
   if (!apiKey) {
     logger.warn('GROQ_API_KEY is not set; POST /voice will answer 503 ai_not_configured');
   }
-  const modelClient = apiKey ? createGroqClient(apiKey) : undefined;
+  const modelClient = apiKey ? createGroqClient(apiKey, logger) : undefined;
   logger.info(
     { model: config.groq.model, reasoningEffort: config.groq.reasoningEffort, configured: Boolean(modelClient) },
     'ai provider: groq',

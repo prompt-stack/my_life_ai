@@ -17,19 +17,20 @@ appId: com.mylifeai.app
     id: voice-listening-indicator
 - takeScreenshot: 01-assistant-idle
 
-# Tapping the orb starts listening, tapping again stops it. On first run the OS microphone /
-# speech permission prompt may appear on the first tap (allow it manually or via a Maestro
-# permission setup). With no speech and no API running it ends in idle or an error status.
+# This journey runs on the iOS Simulator, which has no usable microphone input: starting the
+# speech engine there aborts natively, so the app guards it. Tapping the orb shows a status
+# instead of listening, and the app keeps running. (On a real device the first tap shows the
+# OS microphone/speech permission prompt and then listens.)
 - tapOn:
     id: voice-orb
 - assertVisible:
-    id: voice-listening-indicator
-- assertVisible: "Listening.*"
-- takeScreenshot: 01b-assistant-listening
-- tapOn:
-    id: voice-orb
+    id: voice-status
+    text: ".*available on the Simulator.*"
 - assertNotVisible:
     id: voice-listening-indicator
+- assertVisible:
+    id: assistant-screen
+- takeScreenshot: 01b-assistant-orb-simulator
 
 # Controls menu
 - tapOn: Controls

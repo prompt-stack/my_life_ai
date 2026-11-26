@@ -15,7 +15,7 @@ import Animated, {
 
 import { MinTouchTarget, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { VoiceState } from '@/hooks/use-voice-conversation';
+import type { VoiceState } from '@/features/voice/voice-types';
 
 const CORE_SIZE = 140;
 const RING_COUNT = 3;
