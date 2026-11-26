@@ -1,4 +1,4 @@
-import type { VoiceTurn } from '@mylife/shared';
+import type { VoiceInvocation, VoiceTurn } from '@mylife/shared';
 
 import { executeDeviceAction } from '@/device';
 import { getDeviceInfo } from '@/lib/device-info';
@@ -9,8 +9,16 @@ type Params = {
   history: VoiceTurn[];
   timezone: string | undefined;
   signal: AbortSignal;
+  /** How the user started this turn (tap, wake word, ...). */
+  invocation?: VoiceInvocation;
   /** Called when the phone is about to run a device action. */
   onExecuting?: () => void;
+};
+
+export type VoiceTurnResult = {
+  reply: string;
+  /** A device action failed because an OS permission is missing: the app offers the setup checklist. */
+  permissionRequired: boolean;
 };
 
 /**
@@ -24,12 +32,13 @@ export async function runVoiceTurn({
   history,
   timezone,
   signal,
+  invocation,
   onExecuting,
-}: Params): Promise<string | null> {
-  const device = getDeviceInfo();
-  const first = await sendVoiceMessage({ text, history, timezone, device }, signal);
+}: Params): Promise<VoiceTurnResult | null> {
+  const device = await getDeviceInfo();
+  const first = await sendVoiceMessage({ text, history, timezone, device, invocation }, signal);
   const action = first.deviceAction;
-  if (!action) return first.reply;
+  if (!action) return { reply: first.reply, permissionRequired: false };
 
   // Rule 8: never act after the user cancelled.
   if (signal.aborted) return null;
@@ -37,16 +46,19 @@ export async function runVoiceTurn({
   const result = await executeDeviceAction(action);
   if (signal.aborted) return null;
 
+  // Re-read device info: the alarm list may have changed during the action.
   const second = await sendVoiceMessage(
     {
       text,
       history,
       timezone,
-      device,
-      toolResult: { callId: action.callId, name: action.name, args: action.args, result },
+      device: await getDeviceInfo(),
+      toolResult: { ...action, result },
+      invocation,
     },
     signal,
   );
   // A second deviceAction is ignored: only its reply is spoken.
-  return second.reply;
+  const permissionRequired = !result.ok && result.error === 'permission_required';
+  return { reply: second.reply, permissionRequired };
 }

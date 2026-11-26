@@ -60,3 +60,6 @@ api/.env.*
 !.env.example
 api/*.log
 api/.DS_Store
+
+# Alarm sound masters (regenerate with scripts/alarm-sounds/generate.py)
+scripts/alarm-sounds/out/

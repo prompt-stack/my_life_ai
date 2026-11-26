@@ -43,6 +43,7 @@ export function createVoiceRouter(deps: VoiceRouterDeps): Router {
       now: deps.clock.now(),
       device: body.device,
       toolResult: body.toolResult,
+      invocation: body.invocation,
       requestId: res.locals.requestId,
       signal: abort.signal,
     });

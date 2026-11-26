@@ -36,7 +36,7 @@ export function toolUseFailedError(): BadRequestError {
         message: 'Failed to call a function. Please adjust your prompt.',
         type: 'invalid_request_error',
         code: 'tool_use_failed',
-        failed_generation: '<|call|>setAlarm{bad',
+        failed_generation: '<|call|>createAlarm{bad',
       },
     },
     undefined,

@@ -9,6 +9,9 @@ export default function ControlsLayout() {
       {CONTROLS.map((control) => (
         <Stack.Screen key={control.key} name={control.key} options={{ title: control.title }} />
       ))}
+      <Stack.Screen name="alarm-edit" options={{ title: 'Alarm' }} />
+      <Stack.Screen name="alarm-sound" options={{ title: 'Sound' }} />
+      <Stack.Screen name="alarm-setup" options={{ title: 'Alarm setup' }} />
     </Stack>
   );
 }

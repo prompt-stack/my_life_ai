@@ -11,25 +11,27 @@ import {
 } from 'groq-sdk';
 import { describe, expect, it } from 'vitest';
 import { AiNotConfiguredError, AppError } from '../lib/errors.js';
+import { createLogger } from '../lib/logger.js';
+import { Writable } from 'node:stream';
 import { fakeCompletion, fakeModelClient, fakeToolCall, toolUseFailedError } from '../test-utils/groq.js';
 import { silentLogger } from '../test-utils/app.js';
-import { setAlarmTool } from '../tools/set-alarm.js';
+import { createAlarmTool } from '../tools/create-alarm.js';
 import {
   DEVICE_DONE_REPLY,
-  DEVICE_FAILED_REPLY,
   EMPTY_REPLY,
   formatDeviceContext,
   formatTimeContext,
   generateVoiceReply,
+  modelCallMetrics,
   REFUSAL_REPLY,
   stripReasoning,
   toMessageParams,
   TOOL_TROUBLE_REPLY,
-  VOICE_SYSTEM_PROMPT,
   VOICE_TEMPERATURE,
   type VoiceAssistantDeps,
   type VoiceReplyInput,
 } from './voice-assistant.js';
+import { ALARM_RULES, DEVICE_RESULT_SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT } from './voice-prompts.js';
 
 const NOW = new Date('2026-01-02T01:30:00.000Z');
 const config: VoiceAssistantDeps['config'] = { model: 'openai/gpt-oss-20b', maxTokens: 1024, reasoningEffort: 'low' };
@@ -229,45 +231,13 @@ describe('generateVoiceReply', () => {
   });
 });
 
-const ANDROID = { platform: 'android', osVersion: '15', capabilities: ['setAlarm'] } as const satisfies VoiceReplyInput['device'];
-const IPHONE = { platform: 'ios', osVersion: '26.1', capabilities: [] } as const satisfies VoiceReplyInput['device'];
+const ANDROID = { platform: 'android', osVersion: '15', capabilities: ['createAlarm'] } as const satisfies VoiceReplyInput['device'];
+const IPHONE = { platform: 'ios', osVersion: '18.5', capabilities: [] } as const satisfies VoiceReplyInput['device'];
 const deps = (client: VoiceAssistantDeps['client']): VoiceAssistantDeps => ({ client, config, logger: silentLogger });
 
 function alarmInput(overrides: Partial<VoiceReplyInput> = {}): VoiceReplyInput {
   return input({ text: 'Set an alarm for 6:30 AM', device: { ...ANDROID, capabilities: [...ANDROID.capabilities] }, ...overrides });
 }
-
-describe('VOICE_SYSTEM_PROMPT alarm rules', () => {
-  it.each([
-    ['tools depend on the phone', /depends on the phone/],
-    ['never claim success without a tool result', /Never say you did something on the phone unless a tool result says it succeeded/],
-    ['honest iPhone answer', /I can't set alarms on iPhone yet/],
-    ['no time questions when alarms are unavailable', /do not ask any questions about the time/],
-    ['AM/PM in any form is complete', /\(AM, am, a\.m\., PM, pm, p\.m\.\) is complete/],
-    ['never ask AM or PM when given', /never ask "AM or PM\?"/],
-    ['ask for a missing time', /for "set an alarm", ask what time/],
-    ['ask AM or PM only when missing', /no AM or PM and nothing else settles it.*"7 AM or 7 PM\?"/],
-    ['example: 7 AM', /"Set an alarm for 7 AM" means setAlarm with hour 7, minute 0/],
-    ['example: 7 p.m.', /"Alarm at 7 p\.m\." means hour 19/],
-    ['unambiguous times', /noon, midnight/],
-    ['relative times from the current local time', /in 20 minutes.*current local time/],
-    ['next occurrence only', /next time that clock time comes around/],
-    ['no repeating alarms', /Repeating alarms are not supported yet/],
-    ['short label', /short label/],
-    ['12-hour confirmation', /12-hour spoken form/],
-  ])('includes: %s', (_label, pattern) => {
-    expect(VOICE_SYSTEM_PROMPT).toMatch(pattern);
-  });
-
-  it('checks availability before AM/PM clarification', () => {
-    const unavailable = VOICE_SYSTEM_PROMPT.indexOf('If the setAlarm tool is not provided');
-    const complete = VOICE_SYSTEM_PROMPT.indexOf('is complete: call setAlarm');
-    const ask = VOICE_SYSTEM_PROMPT.indexOf('Ask a question only if');
-    expect(unavailable).toBeGreaterThan(-1);
-    expect(unavailable).toBeLessThan(complete);
-    expect(complete).toBeLessThan(ask);
-  });
-});
 
 describe('formatDeviceContext', () => {
   it('names the platform, or returns undefined without device info', () => {
@@ -276,18 +246,31 @@ describe('formatDeviceContext', () => {
     expect(formatDeviceContext(undefined)).toBeUndefined();
   });
 
-  it('lists the available phone tools, or says plainly there are none', () => {
-    expect(formatDeviceContext({ platform: 'android', capabilities: ['setAlarm'] }, ['setAlarm'])).toBe(
-      'The user is talking to you on an Android phone. Phone tools available on this phone: setAlarm.',
+  it('lists the alarms when alarm tools are included', () => {
+    expect(formatDeviceContext({ platform: 'android', capabilities: ['createAlarm'] }, 'included')).toBe(
+      'The user is talking to you on an Android phone. No alarms yet.',
     );
-    expect(formatDeviceContext({ platform: 'ios', capabilities: [] }, [])).toBe(
-      'The user is talking to you on an iPhone. No phone tools are available on this phone, so you cannot set alarms here.',
+  });
+
+  it('says nothing about alarms when they are deferred for a non-alarm request', () => {
+    expect(formatDeviceContext({ platform: 'android', capabilities: ['createAlarm'] }, 'deferred')).toBe(
+      'The user is talking to you on an Android phone.',
+    );
+  });
+
+  it.each([
+    ['android', "Alarms aren't available in this version of the app."],
+    ['ios', "I can't set alarms on this iPhone yet."],
+  ] as const)('tells the model what to say on %s without alarm tools', (platform, wording) => {
+    expect(formatDeviceContext({ platform, capabilities: [] }, 'unavailable')).toBe(
+      `The user is talking to you on ${platform === 'ios' ? 'an iPhone' : 'an Android phone'}. ` +
+        `Alarms are not available here: if asked to set, change or delete one, say only: ${wording}`,
     );
   });
 });
 
 describe('generateVoiceReply with device tools', () => {
-  it('offers setAlarm (auto, no parallel calls) to an Android phone with the capability', async () => {
+  it('offers createAlarm (auto, no parallel calls) to a phone with the capability', async () => {
     const { client, create } = fakeModelClient();
 
     await generateVoiceReply(alarmInput(), deps(client));
@@ -295,17 +278,55 @@ describe('generateVoiceReply with device tools', () => {
     const params = create.mock.calls[0]?.[0];
     expect(params).toMatchObject({ tool_choice: 'auto', parallel_tool_calls: false });
     expect(params?.tools).toEqual([
-      { type: 'function', function: { name: 'setAlarm', description: setAlarmTool.description, parameters: setAlarmTool.parameters } },
+      {
+        type: 'function',
+        function: { name: 'createAlarm', description: createAlarmTool.description, parameters: createAlarmTool.parameters },
+      },
     ]);
+    expect(params?.messages[0]).toEqual({ role: 'system', content: `${VOICE_SYSTEM_PROMPT}\n${ALARM_RULES}` });
     expect(params?.messages[1]).toEqual({
       role: 'system',
-      content: `${formatTimeContext(NOW, 'Asia/Manila')}\nThe user is talking to you on an Android phone. Phone tools available on this phone: setAlarm.`,
+      content: `${formatTimeContext(NOW, 'Asia/Manila')}\nThe user is talking to you on an Android phone. No alarms yet.`,
     });
   });
 
+  it('leaves the alarm tools, rules and list out of a request that is not about alarms', async () => {
+    const { client, create } = fakeModelClient();
+
+    await generateVoiceReply(alarmInput({ text: 'Tell me a joke' }), deps(client));
+
+    const params = create.mock.calls[0]?.[0];
+    expect(params).not.toHaveProperty('tools');
+    expect(params?.messages[0]).toEqual({ role: 'system', content: VOICE_SYSTEM_PROMPT });
+    expect(params?.messages[1]).toEqual({
+      role: 'system',
+      content: `${formatTimeContext(NOW, 'Asia/Manila')}\nThe user is talking to you on an Android phone.`,
+    });
+  });
+
+  it('keeps the alarm tools for a short answer to an alarm question ("Yes")', async () => {
+    const { client, create } = fakeModelClient();
+    const history = [
+      { role: 'user' as const, text: 'Delete my 6 AM alarm' },
+      { role: 'assistant' as const, text: 'Your closest alarm is 6:30 AM. Delete that one?' },
+    ];
+
+    await generateVoiceReply(alarmInput({ text: 'Yes', history }), deps(client));
+
+    expect(create.mock.calls[0]?.[0].tools?.map((tool) => tool.function?.name)).toEqual(['createAlarm']);
+  });
+
+  it('never sends the alarm rules to a phone without alarm tools', async () => {
+    const { client, create } = fakeModelClient();
+
+    await generateVoiceReply(alarmInput({ device: IPHONE }), deps(client));
+
+    expect(create.mock.calls[0]?.[0].messages[0]).toEqual({ role: 'system', content: VOICE_SYSTEM_PROMPT });
+  });
+
   it.each([
-    ['an iPhone', { device: IPHONE }],
-    ['an iPhone claiming the capability', { device: { platform: 'ios' as const, capabilities: ['setAlarm' as const] } }],
+    ['an iPhone without the capability', { device: IPHONE }],
+    ['a web client claiming the capability', { device: { platform: 'web' as const, capabilities: ['createAlarm' as const] } }],
     ['Android without the capability', { device: { platform: 'android' as const, capabilities: [] } }],
     ['no device info', { device: undefined }],
   ])('offers no tools to %s', async (_label, overrides) => {
@@ -319,30 +340,32 @@ describe('generateVoiceReply with device tools', () => {
     expect(params).not.toHaveProperty('parallel_tool_calls');
   });
 
-  it('tells the model it is on an iPhone so it can explain alarms are unavailable', async () => {
+  it('tells the model on an iPhone without the capability what to say about alarms', async () => {
     const { client, create } = fakeModelClient();
 
     await generateVoiceReply(alarmInput({ device: IPHONE }), deps(client));
 
     expect(create.mock.calls[0]?.[0].messages[1]).toMatchObject({
-      content: expect.stringContaining('on an iPhone. No phone tools are available on this phone'),
+      content: expect.stringContaining("say only: I can't set alarms on this iPhone yet."),
     });
   });
 
-  it('returns a deviceAction for a valid setAlarm call', async () => {
+  it('returns a deviceAction for a valid createAlarm call', async () => {
     const { client } = fakeModelClient(() =>
-      Promise.resolve(fakeCompletion({ content: null, toolCalls: [fakeToolCall('setAlarm', { hour: 6, minute: 30, label: 'Wake up' })] })),
+      Promise.resolve(
+        fakeCompletion({ content: null, toolCalls: [fakeToolCall('createAlarm', { hour: 6, minute: 30, label: 'Wake up' })] }),
+      ),
     );
 
     await expect(generateVoiceReply(alarmInput(), deps(client))).resolves.toEqual({
       reply: '',
-      deviceAction: { callId: 'call_test_1', name: 'setAlarm', args: { hour: 6, minute: 30, label: 'Wake up' } },
+      deviceAction: { callId: 'call_test_1', name: 'createAlarm', args: { hour: 6, minute: 30, label: 'Wake up' } },
     });
   });
 
   it('keeps any model text alongside the action', async () => {
     const { client } = fakeModelClient(() =>
-      Promise.resolve(fakeCompletion({ content: 'Setting it now.', toolCalls: [fakeToolCall('setAlarm', { hour: 18, minute: 0 })] })),
+      Promise.resolve(fakeCompletion({ content: 'Setting it now.', toolCalls: [fakeToolCall('createAlarm', { hour: 18, minute: 0 })] })),
     );
 
     const result = await generateVoiceReply(alarmInput(), deps(client));
@@ -357,18 +380,18 @@ describe('generateVoiceReply with device tools', () => {
     ['an extra argument', { hour: 6, minute: 0, date: '2026-01-09' }],
   ])('asks for the time instead of acting on %s', async (_label, args) => {
     const { client } = fakeModelClient(() =>
-      Promise.resolve(fakeCompletion({ content: null, toolCalls: [fakeToolCall('setAlarm', args)] })),
+      Promise.resolve(fakeCompletion({ content: null, toolCalls: [fakeToolCall('createAlarm', args)] })),
     );
 
     const result = await generateVoiceReply(alarmInput(), deps(client));
 
-    expect(result).toEqual({ reply: setAlarmTool.clarificationReply });
+    expect(result).toEqual({ reply: createAlarmTool.clarificationReply });
     expect(result).not.toHaveProperty('deviceAction');
   });
 
   it('never emits an action for a tool that was not offered', async () => {
     const { client } = fakeModelClient(() =>
-      Promise.resolve(fakeCompletion({ content: 'Okay.', toolCalls: [fakeToolCall('setAlarm', { hour: 6, minute: 0 })] })),
+      Promise.resolve(fakeCompletion({ content: 'Okay.', toolCalls: [fakeToolCall('createAlarm', { hour: 6, minute: 0 })] })),
     );
 
     await expect(generateVoiceReply(alarmInput({ device: IPHONE }), deps(client))).resolves.toEqual({ reply: 'Okay.' });
@@ -379,13 +402,13 @@ describe('generateVoiceReply with device tools', () => {
     create
       .mockImplementationOnce(() => Promise.reject(toolUseFailedError()))
       .mockImplementationOnce(() =>
-        Promise.resolve(fakeCompletion({ content: null, toolCalls: [fakeToolCall('setAlarm', { hour: 6, minute: 0 })] })),
+        Promise.resolve(fakeCompletion({ content: null, toolCalls: [fakeToolCall('createAlarm', { hour: 6, minute: 0 })] })),
       );
 
     const result = await generateVoiceReply(alarmInput(), deps(client));
 
     expect(create).toHaveBeenCalledTimes(2);
-    expect(result.deviceAction).toEqual({ callId: 'call_test_1', name: 'setAlarm', args: { hour: 6, minute: 0 } });
+    expect(result.deviceAction).toEqual({ callId: 'call_test_1', name: 'createAlarm', args: { hour: 6, minute: 0 } });
   });
 
   it('speaks an apology when tool_use_failed happens twice', async () => {
@@ -408,14 +431,14 @@ describe('generateVoiceReply with device tools', () => {
 describe('generateVoiceReply continuation (toolResult)', () => {
   const okResult = {
     callId: 'call_abc',
-    name: 'setAlarm',
+    name: 'createAlarm',
     args: { hour: 6, minute: 30 },
-    result: { ok: true, status: 'dispatched' },
+    result: { ok: true, status: 'done' },
   } as const satisfies VoiceReplyInput['toolResult'];
 
   it('replays the tool call and result, sends no tools, and returns only the spoken reply', async () => {
     const { client, create } = fakeModelClient(() =>
-      Promise.resolve(fakeCompletion({ content: 'Done, your alarm is set for 6:30 AM.' })),
+      Promise.resolve(fakeCompletion({ content: 'Alarm set for 6:30 AM with Sunrise.' })),
     );
     const history = [
       { role: 'user' as const, text: 'Hi' },
@@ -424,11 +447,12 @@ describe('generateVoiceReply continuation (toolResult)', () => {
 
     const result = await generateVoiceReply(alarmInput({ history, toolResult: okResult }), deps(client));
 
-    expect(result).toEqual({ reply: 'Done, your alarm is set for 6:30 AM.' });
+    expect(result).toEqual({ reply: 'Alarm set for 6:30 AM with Sunrise.' });
     expect(create).toHaveBeenCalledTimes(1);
     const params = create.mock.calls[0]?.[0];
     expect(params).not.toHaveProperty('tools');
     expect(params).not.toHaveProperty('tool_choice');
+    expect(params?.messages[0]).toEqual({ role: 'system', content: DEVICE_RESULT_SYSTEM_PROMPT });
     expect(params?.messages[1]).toEqual({
       role: 'system',
       content: `${formatTimeContext(NOW, 'Asia/Manila')}\nThe user is talking to you on an Android phone.`,
@@ -441,36 +465,29 @@ describe('generateVoiceReply continuation (toolResult)', () => {
         role: 'assistant',
         content: '',
         tool_calls: [
-          { id: 'call_abc', type: 'function', function: { name: 'setAlarm', arguments: '{"hour":6,"minute":30}' } },
+          { id: 'call_abc', type: 'function', function: { name: 'createAlarm', arguments: '{"hour":6,"minute":30}' } },
         ],
       },
-      { role: 'tool', tool_call_id: 'call_abc', content: '{"ok":true,"status":"dispatched"}' },
+      { role: 'tool', tool_call_id: 'call_abc', content: '{"ok":true,"status":"done"}' },
     ]);
   });
 
-  it('passes a phone failure to the model so it can explain it', async () => {
-    const { client, create } = fakeModelClient(() =>
-      Promise.resolve(fakeCompletion({ content: "I couldn't find a clock app on this phone." })),
-    );
-    const failed = { ...okResult, result: { ok: false as const, error: 'no_clock_app' as const } };
+  it('answers a phone failure with a fixed reply and never calls the model', async () => {
+    const { client, create } = fakeModelClient();
+    const failed = { ...okResult, result: { ok: false as const, error: 'permission_required' as const } };
 
     await expect(generateVoiceReply(alarmInput({ toolResult: failed }), deps(client))).resolves.toEqual({
-      reply: "I couldn't find a clock app on this phone.",
+      reply: "I need permission to set alarms. Please allow 'Alarms & reminders' for MyLife, then try again.",
     });
-    expect(create.mock.calls[0]?.[0].messages.at(-1)).toEqual({
-      role: 'tool',
-      tool_call_id: 'call_abc',
-      content: '{"ok":false,"error":"no_clock_app"}',
-    });
+    expect(create).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['success', okResult, DEVICE_DONE_REPLY],
-    ['failure', { ...okResult, result: { ok: false as const, error: 'failed' as const } }, DEVICE_FAILED_REPLY],
-  ])('falls back to a safe reply on %s when the model returns no text', async (_label, toolResult, expected) => {
+  it('falls back to a safe reply on success when the model returns no text', async () => {
     const { client } = fakeModelClient(() => Promise.resolve(fakeCompletion({ content: '' })));
 
-    await expect(generateVoiceReply(alarmInput({ toolResult }), deps(client))).resolves.toEqual({ reply: expected });
+    await expect(generateVoiceReply(alarmInput({ toolResult: okResult }), deps(client))).resolves.toEqual({
+      reply: DEVICE_DONE_REPLY,
+    });
   });
 
   it('rejects a result for a tool this device was never offered (400) without calling the model', async () => {
@@ -487,5 +504,80 @@ describe('generateVoiceReply continuation (toolResult)', () => {
     await expect(generateVoiceReply(alarmInput({ toolResult: okResult }), deps(client))).resolves.toEqual({
       reply: TOOL_TROUBLE_REPLY,
     });
+  });
+});
+
+describe('model call logging', () => {
+  function capture() {
+    const lines: Record<string, unknown>[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        lines.push(JSON.parse(chunk.toString()) as Record<string, unknown>);
+        callback();
+      },
+    });
+    return { logger: createLogger({ level: 'info', destination }), lines };
+  }
+
+  it('reads Groq timings (seconds → ms) and reasoning tokens from usage', () => {
+    const completion = fakeCompletion();
+    completion.usage = {
+      prompt_tokens: 900,
+      completion_tokens: 120,
+      total_tokens: 1020,
+      queue_time: 0.0123,
+      prompt_time: 0.05,
+      completion_time: 0.4,
+      total_time: 0.4623,
+      completion_tokens_details: { reasoning_tokens: 80 },
+    };
+
+    expect(modelCallMetrics(completion)).toEqual({
+      finishReason: 'stop',
+      inputTokens: 900,
+      outputTokens: 120,
+      reasoningTokens: 80,
+      groqQueueMs: 12,
+      groqPromptMs: 50,
+      groqCompletionMs: 400,
+      groqTotalMs: 462,
+    });
+  });
+
+  it('reads cached prompt tokens when Groq reports them', () => {
+    const completion = fakeCompletion();
+    completion.usage = {
+      prompt_tokens: 1500,
+      completion_tokens: 20,
+      total_tokens: 1520,
+      prompt_tokens_details: { cached_tokens: 1280 },
+    };
+
+    expect(modelCallMetrics(completion)).toMatchObject({ inputTokens: 1500, cachedTokens: 1280 });
+  });
+
+  it('logs one line per attempt with attempt number, tools offered and latency, never the user text', async () => {
+    const { logger, lines } = capture();
+    const { client, create } = fakeModelClient();
+    create
+      .mockImplementationOnce(() => Promise.reject(toolUseFailedError()))
+      .mockImplementationOnce(() => Promise.resolve(fakeCompletion({ content: 'Sure.' })));
+
+    await generateVoiceReply(alarmInput({ text: 'my private alarm words' }), { client, config, logger });
+
+    const calls = lines.filter((line) => line.msg === 'model call completed' || String(line.msg).includes('tool_use_failed'));
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toMatchObject({ attempt: 1, turn: 'user', toolsOffered: 1, latencyMs: expect.any(Number) });
+    expect(calls[1]).toMatchObject({ msg: 'model call completed', attempt: 2, turn: 'user', toolsOffered: 1, inputTokens: 12 });
+    expect(JSON.stringify(lines)).not.toContain('my private alarm words');
+  });
+
+  it('logs a failed call with its latency before mapping the error', async () => {
+    const { logger, lines } = capture();
+    const { client } = fakeModelClient(() => Promise.reject(new InternalServerError(500, undefined, 'boom', new Headers())));
+
+    await expect(generateVoiceReply(input(), { client, config, logger })).rejects.toBeInstanceOf(AppError);
+
+    expect(lines.find((line) => line.msg === 'model call failed')).toMatchObject({ attempt: 1, toolsOffered: 0, turn: 'user' });
   });
 });

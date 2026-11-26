@@ -21,6 +21,9 @@ export const Colors = {
     onFreeBadge: '#0B5D28',
     speaking: '#0B7A3B',
     onSpeaking: '#ffffff',
+    danger: '#C62828',
+    warningSurface: '#FFF1D6',
+    onWarningSurface: '#6B4200',
   },
   dark: {
     text: '#ffffff',
@@ -37,6 +40,9 @@ export const Colors = {
     onFreeBadge: '#8EE0A8',
     speaking: '#4CD27A',
     onSpeaking: '#000000',
+    danger: '#FF7B7B',
+    warningSurface: '#3A2B0E',
+    onWarningSurface: '#FFD98A',
   },
 } as const;
 

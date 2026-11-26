@@ -6,8 +6,9 @@ export interface DeviceToolCatalog {
   list(): readonly DeviceToolDefinition[];
   /**
    * Capability detection: tools this phone can run right now. A tool is offered
-   * only when its platform matches and the app reports it as a capability.
-   * No device info means no device tools.
+   * only when its platform matches and the app reports it as a capability
+   * (the app reports alarm tools only when its native alarm module is present,
+   * and on iOS only from iOS 26). No device info means no device tools.
    */
   availableFor(device: DeviceInfo | undefined): readonly DeviceToolDefinition[];
 }
