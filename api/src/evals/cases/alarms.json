@@ -1,0 +1,1523 @@
+[
+  {
+    "id": "alarm-create-default-sound",
+    "prompt": "Set an alarm for 6 AM",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "createAlarm",
+        "args": {
+          "hour": 6,
+          "minute": 0
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-create-named-sound",
+    "prompt": "Wake me up at 5:45 am with marimba",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "createAlarm",
+        "args": {
+          "hour": 5,
+          "minute": 45,
+          "sound": "marimba"
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-create-alias-piano-one",
+    "prompt": "Set an alarm for 7:15 PM, use the piano one",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "createAlarm",
+        "args": {
+          "hour": 19,
+          "minute": 15,
+          "sound": "piano"
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-create-vague-sound-asks",
+    "prompt": "Set an alarm for 6 AM with something calm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "Sunrise",
+      "Chimes",
+      "Marimba",
+      "Piano",
+      "Guitar"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-create-ambiguous-ampm-asks",
+    "prompt": "Set an alarm at 7",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "AM",
+      "PM"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-create-weekdays",
+    "prompt": "Set an alarm for 6 AM every weekday",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "createAlarm",
+        "args": {
+          "hour": 6,
+          "minute": 0,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-create-weekends",
+    "prompt": "Wake me at 8:30 a.m. on weekends",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "createAlarm",
+        "args": {
+          "hour": 8,
+          "minute": 30,
+          "weekdays": [
+            6,
+            7
+          ]
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-create-specific-date-unsupported",
+    "prompt": "Set an alarm for 6 AM on March 3",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-list-from-context",
+    "prompt": "What alarms do I have?",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "6:30",
+      "9:30"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-list-none",
+    "prompt": "What alarms do I have?",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-sounds-question",
+    "prompt": "What alarm sounds are there?",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "Sunrise",
+      "Chimes",
+      "Marimba",
+      "Piano",
+      "Guitar",
+      "default"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-preview-sound",
+    "prompt": "Play the chimes sound",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "previewAlarmSound",
+        "args": {
+          "sound": "chimes"
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-update-exact",
+    "prompt": "Change my 6:30 AM alarm to 7 AM",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "updateAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 30
+          },
+          "newHour": 7,
+          "newMinute": 0
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-update-closest-asks",
+    "prompt": "Move my 6 AM alarm to 7 AM",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "updateAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 0
+          }
+        }
+      }
+    ],
+    "expectedReplyIncludes": [
+      "closest alarm is 6:30 AM"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-update-sound-only",
+    "prompt": "Use guitar for my 6:30 alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "updateAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 30
+          },
+          "sound": "guitar"
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-update-turn-off",
+    "prompt": "Turn off my wake up alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "updateAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 30
+          },
+          "enabled": false
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-delete-exact",
+    "prompt": "Delete my 9:30 PM alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "deleteAlarm",
+        "args": {
+          "target": {
+            "hour": 21,
+            "minute": 30
+          }
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-delete-closest-asks",
+    "prompt": "Delete my 6 AM alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "deleteAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 0
+          }
+        }
+      }
+    ],
+    "expectedReplyIncludes": [
+      "closest alarm is 6:30 AM",
+      "Delete that one"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-delete-no-exact-match-still-calls-tool",
+    "prompt": "Delete my 9:15 PM alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 0,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ]
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "deleteAlarm",
+        "args": {
+          "target": {
+            "hour": 21,
+            "minute": 15
+          }
+        }
+      }
+    ],
+    "expectedReplyIncludes": [
+      "closest alarm is 9:00 PM",
+      "Delete that one"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-update-no-exact-match-still-calls-tool",
+    "prompt": "Change my 6:45 AM alarm to 7 AM",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 0,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ]
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "updateAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 45
+          },
+          "newHour": 7,
+          "newMinute": 0
+        }
+      }
+    ],
+    "expectedReplyIncludes": [
+      "closest alarm is 6:30 AM"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-delete-closest-confirmed",
+    "prompt": "Yes",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "history": [
+      {
+        "role": "user",
+        "text": "Delete my 6 AM alarm"
+      },
+      {
+        "role": "assistant",
+        "text": "Your closest alarm is 6:30 AM. Delete that one?"
+      }
+    ],
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "deleteAlarm",
+        "args": {
+          "target": {
+            "hour": 6,
+            "minute": 30
+          }
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-delete-no-alarms",
+    "prompt": "Delete my 7 AM alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "don't have any alarms"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-iphone-without-capability-declines",
+    "prompt": "Set an alarm for 6 AM",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "ios",
+      "osVersion": "18.5",
+      "capabilities": []
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "can't set alarms on this iPhone"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-android-without-capability-declines",
+    "prompt": "Set an alarm for 6 AM",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-02T13:00:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": []
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "aren't available in this version"
+    ],
+    "expectDeviceAction": false
+  },
+  {
+    "id": "alarm-stop-while-ringing",
+    "prompt": "Stop",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-04T22:31:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound",
+        "stopAlarm",
+        "snoozeAlarm"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      },
+      "ringingAlarmId": "alarm-1"
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "stopAlarm"
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-snooze-five-more-minutes",
+    "prompt": "Five more minutes",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-04T22:31:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound",
+        "stopAlarm",
+        "snoozeAlarm"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      },
+      "ringingAlarmId": "alarm-1"
+    },
+    "expectedToolCalls": [
+      {
+        "tool": "snoozeAlarm",
+        "args": {
+          "minutes": 5
+        }
+      }
+    ],
+    "expectDeviceAction": true
+  },
+  {
+    "id": "alarm-stop-when-nothing-rings",
+    "prompt": "Stop the alarm",
+    "timezone": "Asia/Manila",
+    "now": "2026-01-04T22:31:00.000Z",
+    "device": {
+      "platform": "android",
+      "osVersion": "15",
+      "capabilities": [
+        "createAlarm",
+        "updateAlarm",
+        "deleteAlarm",
+        "previewAlarmSound",
+        "stopAlarm",
+        "snoozeAlarm"
+      ],
+      "manufacturer": "Xiaomi",
+      "brand": "POCO",
+      "model": "POCO F9 Pro",
+      "alarms": [
+        {
+          "id": "alarm-1",
+          "hour": 6,
+          "minute": 30,
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "label": "Wake up",
+          "sound": "sunrise",
+          "enabled": true,
+          "nextTriggerAt": "2026-01-04T22:30:00.000Z"
+        },
+        {
+          "id": "alarm-2",
+          "hour": 21,
+          "minute": 30,
+          "weekdays": [],
+          "sound": "piano",
+          "enabled": false,
+          "nextTriggerAt": null
+        }
+      ],
+      "alarmPermissions": {
+        "exactAlarm": "granted",
+        "fullScreen": "granted",
+        "notifications": "granted"
+      }
+    },
+    "expectedToolCalls": [],
+    "expectedReplyIncludes": [
+      "no alarm ringing"
+    ],
+    "expectDeviceAction": false
+  }
+]
